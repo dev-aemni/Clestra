@@ -1,0 +1,6 @@
+{
+  "name": "Clestra",
+  "description": "Real-time P2P and serverless offline relay chat app with peach & orange styling",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

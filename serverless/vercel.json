@@ -1,0 +1,9 @@
+{
+  "version": 2,
+  "rewrites": [
+    { "source": "/api/messages/send", "destination": "/api/messages.js" },
+    { "source": "/api/messages/sync", "destination": "/api/messages.js" },
+    { "source": "/api/messages", "destination": "/api/messages.js" },
+    { "source": "/api/health", "destination": "/api/messages.js" }
+  ]
+}

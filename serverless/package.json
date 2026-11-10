@@ -1,0 +1,12 @@
+{
+  "name": "clestra-serverless-relay",
+  "version": "1.0.0",
+  "description": "Lightweight serverless offline message relay with MongoDB Atlas auto-cleanup for Clestra",
+  "main": "api/messages.js",
+  "scripts": {
+    "start": "node -e 'require(\"http\").createServer(require(\"./api/messages\")).listen(3000, () => console.log(\"Clestra Relay listening on :3000\"))'"
+  },
+  "dependencies": {
+    "mongodb": "^6.8.0"
+  }
+}
