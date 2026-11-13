@@ -36,6 +36,9 @@ interface MessageDao {
     @Query("SELECT * FROM messages WHERE conversationId = :convoId ORDER BY timestamp ASC")
     fun getMessagesForConversation(convoId: String): Flow<List<MessageEntity>>
 
+    @Query("SELECT * FROM messages WHERE conversationId = :convoId ORDER BY timestamp DESC LIMIT :limit")
+    suspend fun getRecentMessages(convoId: String, limit: Int): List<MessageEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMessage(message: MessageEntity)
 
@@ -66,7 +69,7 @@ interface MessageDao {
 
 @Dao
 interface ConversationDao {
-    @Query("SELECT * FROM conversations ORDER BY lastTimestamp DESC")
+    @Query("SELECT * FROM conversations ORDER BY isOfficial DESC, lastTimestamp DESC")
     fun getAllConversations(): Flow<List<ConversationEntity>>
 
     @Query("SELECT * FROM conversations WHERE peerId = :peerId")
@@ -77,6 +80,12 @@ interface ConversationDao {
 
     @Query("UPDATE conversations SET isPeerOnline = :isOnline WHERE peerId = :peerId")
     suspend fun updatePeerOnlineStatus(peerId: String, isOnline: Boolean)
+
+    @Query("UPDATE conversations SET isMuted = :isMuted WHERE peerId = :peerId")
+    suspend fun updateMuted(peerId: String, isMuted: Boolean)
+
+    @Query("UPDATE conversations SET isBlocked = :isBlocked WHERE peerId = :peerId")
+    suspend fun updateBlocked(peerId: String, isBlocked: Boolean)
 
     @Query("UPDATE conversations SET unreadCount = 0 WHERE peerId = :peerId")
     suspend fun clearUnread(peerId: String)
@@ -90,7 +99,7 @@ interface ConversationDao {
 
 @Dao
 interface PeerDao {
-    @Query("SELECT * FROM peers ORDER BY isOnline DESC, displayName ASC")
+    @Query("SELECT * FROM peers ORDER BY isOfficial DESC, isOnline DESC, displayName ASC")
     fun getAllPeers(): Flow<List<PeerEntity>>
 
     @Query("SELECT * FROM peers WHERE peerId = :peerId")
@@ -104,6 +113,12 @@ interface PeerDao {
 
     @Query("UPDATE peers SET isOnline = :isOnline, lastSeen = :timestamp WHERE peerId = :peerId")
     suspend fun updateOnlineStatus(peerId: String, isOnline: Boolean, timestamp: Long = System.currentTimeMillis())
+
+    @Query("UPDATE peers SET isMuted = :isMuted WHERE peerId = :peerId")
+    suspend fun updateMuted(peerId: String, isMuted: Boolean)
+
+    @Query("UPDATE peers SET isBlocked = :isBlocked WHERE peerId = :peerId")
+    suspend fun updateBlocked(peerId: String, isBlocked: Boolean)
 
     @Query("DELETE FROM peers WHERE peerId = :peerId")
     suspend fun deletePeer(peerId: String)

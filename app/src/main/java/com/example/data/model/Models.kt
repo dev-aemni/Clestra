@@ -56,7 +56,10 @@ data class ConversationEntity(
     val lastTimestamp: Long,
     val unreadCount: Int = 0,
     val isPeerOnline: Boolean = true, // Whether peer is currently reachable via P2P
-    val lastDeliveryRoute: String = "P2P_DIRECT"
+    val lastDeliveryRoute: String = "P2P_DIRECT",
+    val isOfficial: Boolean = false,
+    val isMuted: Boolean = false,
+    val isBlocked: Boolean = false
 )
 
 /**
@@ -72,7 +75,10 @@ data class PeerEntity(
     val avatarIcon: String = "🍑",
     val isOnline: Boolean = true,
     val directAddress: String = "p2p://local-node",
-    val lastSeen: Long = System.currentTimeMillis()
+    val lastSeen: Long = System.currentTimeMillis(),
+    val isOfficial: Boolean = false,
+    val isMuted: Boolean = false,
+    val isBlocked: Boolean = false
 )
 
 // --- Serverless Relay API DTOs ---

@@ -25,6 +25,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -56,14 +57,15 @@ import androidx.compose.ui.unit.sp
 import com.example.R
 import com.example.data.model.ConversationEntity
 import com.example.ui.ChatViewModel
-import com.example.ui.theme.ClestraBubbleRecv
 import com.example.ui.theme.ClestraBubbleSent
 import com.example.ui.theme.ClestraCharcoal
 import com.example.ui.theme.ClestraCopper
 import com.example.ui.theme.ClestraCream
+import com.example.ui.theme.ClestraError
 import com.example.ui.theme.ClestraOnline
 import com.example.ui.theme.ClestraSand
 import com.example.ui.theme.ClestraTextSoft
+import com.example.ui.theme.ClestraWarmBeige
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -140,7 +142,7 @@ fun ConversationsScreen(
                         onValueChange = { viewModel.searchQuery.value = it },
                         placeholder = {
                             Text(
-                                text = "Search conversations...",
+                                text = "Search by name, message, or Clestra ID...",
                                 color = ClestraTextSoft,
                                 fontSize = 14.sp
                             )
@@ -165,7 +167,6 @@ fun ConversationsScreen(
             }
         }
 
-        // Chat list or clean empty state
         if (conversations.isEmpty()) {
             Box(
                 modifier = Modifier
@@ -206,7 +207,7 @@ fun ConversationsScreen(
                     Spacer(modifier = Modifier.height(6.dp))
 
                     Text(
-                        text = "Start a private, end-to-end encrypted chat with a friend's username or Clestra ID.",
+                        text = "Enter a user's Clestra ID to start an end-to-end encrypted chat right away.",
                         fontSize = 14.sp,
                         color = ClestraTextSoft,
                         textAlign = TextAlign.Center
@@ -266,29 +267,49 @@ fun ConversationItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val rowBg = if (conversation.isOfficial) {
+        ClestraWarmBeige.copy(alpha = 0.55f)
+    } else {
+        Color.Transparent
+    }
+
     Row(
         modifier = modifier
             .fillMaxWidth()
+            .background(rowBg)
             .clickable { onClick() }
             .padding(16.dp)
             .testTag("conversation_item_${conversation.peerId}"),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Avatar matching item_chat_row_cf60456b.xml (48dp x 48dp, bg_bubble_sent 16dp rounded)
         Box(modifier = Modifier.size(48.dp)) {
             Box(
                 modifier = Modifier
                     .size(48.dp)
                     .clip(RoundedCornerShape(16.dp))
-                    .background(ClestraBubbleSent),
+                    .background(ClestraBubbleSent)
+                    .then(
+                        if (conversation.isOfficial) {
+                            Modifier.border(1.5.dp, ClestraCopper, RoundedCornerShape(16.dp))
+                        } else Modifier
+                    ),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = conversation.peerName.firstOrNull()?.uppercase() ?: "?",
-                    color = ClestraCharcoal,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold
-                )
+                if (conversation.isOfficial) {
+                    Image(
+                        painter = painterResource(id = R.drawable.logo),
+                        contentDescription = "Clestra Official",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Text(
+                        text = conversation.peerName.firstOrNull()?.uppercase() ?: "?",
+                        color = ClestraCharcoal,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
 
             Box(
@@ -296,7 +317,13 @@ fun ConversationItem(
                     .size(12.dp)
                     .align(Alignment.BottomEnd)
                     .clip(CircleShape)
-                    .background(if (conversation.isPeerOnline) ClestraOnline else ClestraCopper)
+                    .background(
+                        when {
+                            conversation.isBlocked -> ClestraError
+                            conversation.isPeerOnline || conversation.isOfficial -> ClestraOnline
+                            else -> ClestraCopper
+                        }
+                    )
                     .border(2.dp, ClestraCream, CircleShape)
             )
         }
@@ -309,15 +336,41 @@ fun ConversationItem(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = conversation.peerName,
-                    color = ClestraCharcoal,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.weight(1f)
-                )
+                ) {
+                    Text(
+                        text = conversation.peerName,
+                        color = ClestraCharcoal,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    if (conversation.isOfficial) {
+                        Spacer(modifier = Modifier.width(6.dp))
+                        OfficialTag()
+                    }
+                    if (conversation.isMuted) {
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Icon(
+                            imageVector = Icons.Default.NotificationsOff,
+                            contentDescription = "Muted",
+                            tint = ClestraTextSoft,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                    if (conversation.isBlocked) {
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "• Blocked",
+                            color = ClestraError,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
 
                 Spacer(modifier = Modifier.width(8.dp))
 

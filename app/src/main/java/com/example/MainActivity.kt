@@ -36,9 +36,21 @@ class MainActivity : ComponentActivity() {
 
     private val viewModel: ChatViewModel by viewModels()
 
+    override fun onStart() {
+        super.onStart()
+        viewModel.setAppInForeground(true)
+    }
+
+    override fun onStop() {
+        super.onStop()
+        viewModel.setAppInForeground(false)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        val initialPeerId = intent?.getStringExtra("open_peer_id")
 
         setContent {
             ClestraTheme {
@@ -67,7 +79,10 @@ class MainActivity : ComponentActivity() {
                         when (state) {
                             "splash" -> SplashScreen()
                             "setup" -> SetupAccountScreen(viewModel = viewModel)
-                            else -> ClestraApp(viewModel = viewModel)
+                            else -> ClestraApp(
+                                viewModel = viewModel,
+                                initialPeerId = initialPeerId
+                            )
                         }
                     }
                 }
@@ -77,10 +92,19 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun ClestraApp(viewModel: ChatViewModel) {
+fun ClestraApp(
+    viewModel: ChatViewModel,
+    initialPeerId: String? = null
+) {
     val navController = rememberNavController()
     var showNewChatDialog by remember { mutableStateOf(false) }
     val peers by viewModel.peers.collectAsState()
+
+    LaunchedEffect(initialPeerId) {
+        if (!initialPeerId.isNullOrBlank()) {
+            navController.navigate("chat/$initialPeerId")
+        }
+    }
 
     NavHost(
         navController = navController,

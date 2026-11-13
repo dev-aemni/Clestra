@@ -5,6 +5,8 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -33,7 +35,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material.icons.filled.NotificationsOff
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -58,13 +68,16 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.example.R
 import com.example.data.model.MessageEntity
+import com.example.data.repository.ChatRepository
 import com.example.ui.ChatViewModel
 import com.example.ui.components.RouteToggleChip
 import com.example.ui.theme.ClestraBubbleRecv
@@ -73,7 +86,10 @@ import com.example.ui.theme.ClestraCharcoal
 import com.example.ui.theme.ClestraCopper
 import com.example.ui.theme.ClestraCopperDark
 import com.example.ui.theme.ClestraCream
+import com.example.ui.theme.ClestraError
+import com.example.ui.theme.ClestraOnline
 import com.example.ui.theme.ClestraTextSoft
+import com.example.ui.theme.ClestraWarmBeige
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -98,8 +114,10 @@ fun ChatDetailScreen(
     val conversation by viewModel.activeConversation.collectAsState()
     val peer by viewModel.activePeer.collectAsState()
     val messages by viewModel.activeMessages.collectAsState()
+    val isBotTyping by viewModel.isBotTyping.collectAsState()
     var inputText by remember { mutableStateOf("") }
     var previewMediaUri by remember { mutableStateOf<String?>(null) }
+    var showOverflowMenu by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
 
     val mediaPickerLauncher = rememberLauncherForActivityResult(
@@ -124,7 +142,10 @@ fun ChatDetailScreen(
         }
     }
 
+    val isOfficial = peer?.isOfficial == true || peerId == ChatRepository.OFFICIAL_BOT_ID
     val isPeerOnline = peer?.isOnline ?: conversation?.isPeerOnline ?: false
+    val isMuted = peer?.isMuted ?: conversation?.isMuted ?: false
+    val isBlocked = peer?.isBlocked ?: conversation?.isBlocked ?: false
     val peerName = peer?.displayName ?: conversation?.peerName ?: "Peer $peerId"
 
     Box(
@@ -167,22 +188,136 @@ fun ChatDetailScreen(
                         )
                     }
 
-                    Spacer(modifier = Modifier.width(8.dp))
+                    if (isOfficial) {
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Image(
+                            painter = painterResource(id = R.drawable.logo),
+                            contentDescription = "Clestra Official",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                        )
+                    }
 
-                    Text(
-                        text = peerName,
-                        color = ClestraCharcoal,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
-                    )
+                    Spacer(modifier = Modifier.width(10.dp))
 
-                    RouteToggleChip(
-                        isOnline = isPeerOnline,
-                        onToggle = { viewModel.togglePeerOnline(peerId) }
-                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = peerName,
+                                color = ClestraCharcoal,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            if (isOfficial) {
+                                Spacer(modifier = Modifier.width(6.dp))
+                                OfficialTag()
+                            }
+                            if (isMuted) {
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Icon(
+                                    imageVector = Icons.Default.NotificationsOff,
+                                    contentDescription = "Muted",
+                                    tint = ClestraTextSoft,
+                                    modifier = Modifier.size(15.dp)
+                                )
+                            }
+                        }
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Lock,
+                                contentDescription = null,
+                                tint = ClestraTextSoft,
+                                modifier = Modifier.size(11.dp)
+                            )
+                            Spacer(modifier = Modifier.width(3.dp))
+                            Text(
+                                text = if (isOfficial) {
+                                    "Official Clestra Assistant"
+                                } else if (isBlocked) {
+                                    "Blocked"
+                                } else {
+                                    "AES-256 Encrypted"
+                                },
+                                color = if (isBlocked) ClestraError else ClestraTextSoft,
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+
+                    if (!isOfficial) {
+                        RouteToggleChip(
+                            isOnline = isPeerOnline,
+                            onToggle = { viewModel.togglePeerOnline(peerId) }
+                        )
+                    }
+
+                    Box {
+                        IconButton(
+                            onClick = { showOverflowMenu = true },
+                            modifier = Modifier.testTag("chat_more_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.MoreVert,
+                                contentDescription = "Chat options",
+                                tint = ClestraCharcoal
+                            )
+                        }
+
+                        DropdownMenu(
+                            expanded = showOverflowMenu,
+                            onDismissRequest = { showOverflowMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text(if (isMuted) "Unmute Notifications" else "Mute Notifications") },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = if (isMuted) Icons.Default.NotificationsActive else Icons.Default.NotificationsOff,
+                                        contentDescription = null
+                                    )
+                                },
+                                onClick = {
+                                    viewModel.toggleMutePeer(peerId)
+                                    showOverflowMenu = false
+                                }
+                            )
+
+                            if (!isOfficial) {
+                                DropdownMenuItem(
+                                    text = { Text(if (isBlocked) "Unblock User" else "Block User") },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Default.Block,
+                                            contentDescription = null,
+                                            tint = if (isBlocked) ClestraOnline else ClestraError
+                                        )
+                                    },
+                                    onClick = {
+                                        viewModel.toggleBlockPeer(peerId)
+                                        showOverflowMenu = false
+                                    }
+                                )
+                            }
+
+                            DropdownMenuItem(
+                                text = { Text("Clear Chat History") },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.DeleteSweep,
+                                        contentDescription = null
+                                    )
+                                },
+                                onClick = {
+                                    viewModel.clearConversationHistory(peerId)
+                                    showOverflowMenu = false
+                                }
+                            )
+                        }
+                    }
                 }
             }
 
@@ -198,94 +333,151 @@ fun ChatDetailScreen(
                 items(messages, key = { it.id }) { message ->
                     MessageBubble(
                         message = message,
+                        isOfficialBotChat = isOfficial,
                         onReact = { emoji -> viewModel.reactToMessage(message.id, emoji) },
                         onDelete = { viewModel.deleteMessage(message.id) },
                         onOpenMedia = { uri -> previewMediaUri = uri }
                     )
                 }
+
+                if (isOfficial && isBotTyping) {
+                    item {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Surface(
+                                shape = RoundedCornerShape(16.dp),
+                                color = ClestraWarmBeige,
+                                border = BorderStroke(1.dp, ClestraCopper.copy(alpha = 0.35f))
+                            ) {
+                                Text(
+                                    text = "Clestra is thinking...",
+                                    color = ClestraTextSoft,
+                                    fontSize = 12.sp,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                                )
+                            }
+                        }
+                    }
+                }
             }
 
-            // Bottom Input Area matching activity_chat_62498139.xml
-            Surface(
-                color = Color.White,
-                shadowElevation = 8.dp,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier
-                        .navigationBarsPadding()
-                        .fillMaxWidth()
-                        .padding(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
+            // Bottom Input Area or Blocked Banner
+            if (isBlocked) {
+                Surface(
+                    color = Color.White,
+                    shadowElevation = 8.dp,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    IconButton(
-                        onClick = {
-                            mediaPickerLauncher.launch(
-                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                            )
-                        },
+                    Row(
                         modifier = Modifier
-                            .minimumInteractiveComponentSize()
-                            .testTag("attach_button")
+                            .navigationBarsPadding()
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = "Attach media",
-                            tint = ClestraTextSoft,
-                            modifier = Modifier.size(24.dp)
+                        Text(
+                            text = "You blocked this user.",
+                            color = ClestraError,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium
                         )
+                        Button(
+                            onClick = { viewModel.toggleBlockPeer(peerId) },
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = ClestraCopper,
+                                contentColor = Color.White
+                            )
+                        ) {
+                            Text("Unblock", fontWeight = FontWeight.Bold)
+                        }
                     }
-
-                    TextField(
-                        value = inputText,
-                        onValueChange = { inputText = it },
-                        placeholder = {
-                            Text(
-                                text = "Message...",
-                                color = ClestraTextSoft,
-                                fontSize = 14.sp
-                            )
-                        },
-                        maxLines = 4,
-                        shape = RoundedCornerShape(16.dp),
-                        colors = TextFieldDefaults.colors(
-                            focusedContainerColor = ClestraCream,
-                            unfocusedContainerColor = ClestraCream,
-                            focusedIndicatorColor = Color.Transparent,
-                            unfocusedIndicatorColor = Color.Transparent,
-                            focusedTextColor = ClestraCharcoal,
-                            unfocusedTextColor = ClestraCharcoal,
-                            cursorColor = ClestraCopper
-                        ),
+                }
+            } else {
+                Surface(
+                    color = Color.White,
+                    shadowElevation = 8.dp,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
                         modifier = Modifier
-                            .weight(1f)
-                            .heightIn(min = 44.dp)
-                            .testTag("chat_input_field")
-                    )
-
-                    Spacer(modifier = Modifier.width(8.dp))
-
-                    Box(
-                        modifier = Modifier
-                            .minimumInteractiveComponentSize()
-                            .size(40.dp)
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(ClestraBubbleSent)
-                            .clickable {
-                                if (inputText.isNotBlank()) {
-                                    viewModel.sendMessage(inputText)
-                                    inputText = ""
-                                }
-                            }
-                            .testTag("send_button"),
-                        contentAlignment = Alignment.Center
+                            .navigationBarsPadding()
+                            .fillMaxWidth()
+                            .padding(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.Send,
-                            contentDescription = "Send Message",
-                            tint = ClestraCopperDark,
-                            modifier = Modifier.size(20.dp)
+                        IconButton(
+                            onClick = {
+                                mediaPickerLauncher.launch(
+                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                )
+                            },
+                            modifier = Modifier
+                                .minimumInteractiveComponentSize()
+                                .testTag("attach_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = "Attach media",
+                                tint = ClestraTextSoft,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+
+                        TextField(
+                            value = inputText,
+                            onValueChange = { inputText = it },
+                            placeholder = {
+                                Text(
+                                    text = if (isOfficial) "Ask Clestra anything..." else "Message...",
+                                    color = ClestraTextSoft,
+                                    fontSize = 14.sp
+                                )
+                            },
+                            maxLines = 4,
+                            shape = RoundedCornerShape(16.dp),
+                            colors = TextFieldDefaults.colors(
+                                focusedContainerColor = ClestraCream,
+                                unfocusedContainerColor = ClestraCream,
+                                focusedIndicatorColor = Color.Transparent,
+                                unfocusedIndicatorColor = Color.Transparent,
+                                focusedTextColor = ClestraCharcoal,
+                                unfocusedTextColor = ClestraCharcoal,
+                                cursorColor = ClestraCopper
+                            ),
+                            modifier = Modifier
+                                .weight(1f)
+                                .heightIn(min = 44.dp)
+                                .testTag("chat_input_field")
                         )
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        Box(
+                            modifier = Modifier
+                                .minimumInteractiveComponentSize()
+                                .size(40.dp)
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(ClestraBubbleSent)
+                                .clickable {
+                                    if (inputText.isNotBlank()) {
+                                        viewModel.sendMessage(inputText)
+                                        inputText = ""
+                                    }
+                                }
+                                .testTag("send_button"),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.Send,
+                                contentDescription = "Send Message",
+                                tint = ClestraCopperDark,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -330,6 +522,7 @@ fun ChatDetailScreen(
 @Composable
 fun MessageBubble(
     message: MessageEntity,
+    isOfficialBotChat: Boolean = false,
     onReact: (String) -> Unit,
     onDelete: () -> Unit,
     onOpenMedia: (String) -> Unit,
@@ -338,8 +531,17 @@ fun MessageBubble(
     val clipboard = LocalClipboardManager.current
     var showMenu by remember { mutableStateOf(false) }
     val isSent = message.isOutgoing
+    val isBotIncoming = !isSent && isOfficialBotChat
 
-    // Matches item_msg_sent_fe308c85.xml & item_msg_recv_dfaf37bd.xml
+    val bubbleBg = when {
+        isSent -> ClestraBubbleSent
+        isBotIncoming -> ClestraWarmBeige
+        else -> ClestraBubbleRecv
+    }
+    val bubbleBorder = if (isBotIncoming) {
+        BorderStroke(1.dp, ClestraCopper.copy(alpha = 0.35f))
+    } else null
+
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -353,8 +555,9 @@ fun MessageBubble(
         Box {
             Surface(
                 shape = RoundedCornerShape(16.dp),
-                color = if (isSent) ClestraBubbleSent else ClestraBubbleRecv,
-                shadowElevation = if (isSent) 1.dp else 0.dp,
+                color = bubbleBg,
+                border = bubbleBorder,
+                shadowElevation = if (isSent || isBotIncoming) 1.dp else 0.dp,
                 modifier = Modifier
                     .widthIn(max = 300.dp)
                     .clip(RoundedCornerShape(16.dp))
@@ -364,6 +567,22 @@ fun MessageBubble(
                 Column(
                     modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
                 ) {
+                    if (isBotIncoming) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(bottom = 4.dp)
+                        ) {
+                            Text(
+                                text = "Clestra",
+                                color = ClestraCopperDark,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            OfficialTag()
+                        }
+                    }
+
                     if (!message.mediaUri.isNullOrBlank()) {
                         AsyncImage(
                             model = message.mediaUri,
@@ -446,8 +665,13 @@ fun MessageBubble(
             }
         }
 
-        // Timestamp matching tvTime (10sp, textSoft, marginTop 2dp)
-        val routeLabel = if (message.deliveryRoute == "P2P_DIRECT") "P2P" else "Relay"
+        val routeLabel = if (isOfficialBotChat) {
+            "Official • E2EE"
+        } else if (message.deliveryRoute == "P2P_DIRECT") {
+            "P2P • E2EE"
+        } else {
+            "Relay • E2EE"
+        }
         Text(
             text = "${formatTimeSimple(message.timestamp)} • $routeLabel",
             color = ClestraTextSoft,

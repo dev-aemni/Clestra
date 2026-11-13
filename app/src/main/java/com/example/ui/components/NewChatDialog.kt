@@ -153,7 +153,7 @@ fun NewChatDialog(
                     }
                 } else {
                     Text(
-                        text = "Enter a friend's Clestra ID or username to start chatting.",
+                        text = "Enter a user's Clestra ID to start an encrypted chat directly.",
                         fontSize = 13.sp,
                         color = ClestraTextSoft
                     )
@@ -163,7 +163,7 @@ fun NewChatDialog(
                     ClestraPillInput(
                         value = customPeerId,
                         onValueChange = { customPeerId = it.trim().uppercase() },
-                        hint = "Clestra ID (e.g. CLS-8A2F-9C14)",
+                        hint = "Clestra ID (e.g. CLS-8A2F-9C14-X1P2)",
                         containerColor = ClestraBubbleRecv,
                         modifier = Modifier.testTag("peer_id_input")
                     )

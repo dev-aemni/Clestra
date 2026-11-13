@@ -16,7 +16,7 @@ import com.example.data.model.UserAccountEntity
         ConversationEntity::class,
         PeerEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

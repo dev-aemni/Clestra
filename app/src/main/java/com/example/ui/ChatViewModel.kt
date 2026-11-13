@@ -38,11 +38,19 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val _activePeerId = MutableStateFlow<String?>(null)
     val activePeerId: StateFlow<String?> = _activePeerId.asStateFlow()
 
-    private val _activeConversation = MutableStateFlow<ConversationEntity?>(null)
-    val activeConversation: StateFlow<ConversationEntity?> = _activeConversation.asStateFlow()
+    val activeConversation: StateFlow<ConversationEntity?> = _activePeerId.flatMapLatest { peerId ->
+        if (peerId == null) flowOf(null)
+        else repository.getAllConversations().combine(flowOf(peerId)) { list, id ->
+            list.firstOrNull { it.peerId == id }
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
-    private val _activePeer = MutableStateFlow<PeerEntity?>(null)
-    val activePeer: StateFlow<PeerEntity?> = _activePeer.asStateFlow()
+    val activePeer: StateFlow<PeerEntity?> = _activePeerId.flatMapLatest { peerId ->
+        if (peerId == null) flowOf(null)
+        else repository.getAllPeers().combine(flowOf(peerId)) { list, id ->
+            list.firstOrNull { it.peerId == id }
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     // Filter tab (0: All, 1: Online P2P, 2: Offline Relay)
     val selectedFilterTab = MutableStateFlow(0)
@@ -58,14 +66,14 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     ) { list, tab, query ->
         list.filter { convo ->
             val matchesQuery = query.isBlank() ||
-                    convo.peerName.contains(query, ignoreCase = true) ||
-                    convo.lastMessage.contains(query, ignoreCase = true) ||
-                    convo.peerId.contains(query, ignoreCase = true)
+                convo.peerName.contains(query, ignoreCase = true) ||
+                convo.lastMessage.contains(query, ignoreCase = true) ||
+                convo.peerId.contains(query, ignoreCase = true)
 
             val matchesTab = when (tab) {
-                1 -> convo.isPeerOnline // Online P2P
-                2 -> !convo.isPeerOnline // Offline Relay
-                else -> true // All
+                1 -> convo.isPeerOnline
+                2 -> !convo.isPeerOnline
+                else -> true
             }
             matchesQuery && matchesTab
         }
@@ -88,6 +96,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     val syncStatus = repository.syncStatus
     val lastSyncCount = repository.lastSyncCount
     val serverlessUrl = repository.serverlessUrl
+    val isBotTyping = repository.isBotTyping
 
     private val _isSyncing = MutableStateFlow(false)
     val isSyncing: StateFlow<Boolean> = _isSyncing.asStateFlow()
@@ -95,8 +104,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val _relayTestResult = MutableStateFlow<String?>(null)
     val relayTestResult: StateFlow<String?> = _relayTestResult.asStateFlow()
 
-    private val _friendRequestStatus = MutableStateFlow("")
-    val friendRequestStatus: StateFlow<String> = _friendRequestStatus.asStateFlow()
+    fun setAppInForeground(inForeground: Boolean) {
+        repository.setAppInForeground(inForeground)
+    }
 
     fun setupAccount(
         name: String,
@@ -128,37 +138,31 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun sendFriendRequest(usernameOrId: String) {
-        val trimmed = usernameOrId.trim()
-        if (trimmed.isBlank()) {
-            _friendRequestStatus.value = "Please enter a username or Clestra ID."
-            return
-        }
+    fun startDirectChatById(
+        peerIdInput: String,
+        displayNameInput: String = "",
+        onReady: (String) -> Unit = {}
+    ) {
+        val cleanId = peerIdInput.trim().uppercase()
+        if (cleanId.isBlank()) return
+        val name = displayNameInput.trim().ifBlank { cleanId }
         viewModelScope.launch {
-            val normalizedId = if (trimmed.startsWith("CLS-", ignoreCase = true)) {
-                trimmed.uppercase()
-            } else {
-                "CLS-${trimmed.uppercase().take(4).padEnd(4, 'X')}-PEER"
-            }
-            val displayName = if (trimmed.startsWith("CLS-", ignoreCase = true)) trimmed else trimmed
-            repository.addPeer(normalizedId, displayName)
-            _friendRequestStatus.value = "Request sent & connected with $displayName ($normalizedId)"
+            repository.addPeer(cleanId, name)
+            onReady(cleanId)
         }
     }
 
     fun selectConversation(peerId: String) {
         _activePeerId.value = peerId
+        repository.setActiveConversationPeerId(peerId)
         viewModelScope.launch {
             repository.clearUnread(peerId)
-            _activeConversation.value = repository.getConversation(peerId)
-            _activePeer.value = repository.getPeer(peerId)
         }
     }
 
     fun closeConversation() {
         _activePeerId.value = null
-        _activeConversation.value = null
-        _activePeer.value = null
+        repository.setActiveConversationPeerId(null)
     }
 
     fun sendMessage(content: String, mediaUri: String? = null) {
@@ -167,8 +171,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
         viewModelScope.launch {
             repository.sendMessage(peerId, content.trim(), mediaUri)
-            _activeConversation.value = repository.getConversation(peerId)
-            _activePeer.value = repository.getPeer(peerId)
         }
     }
 
@@ -186,8 +188,30 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     fun togglePeerOnline(peerId: String) {
         viewModelScope.launch {
             repository.togglePeerOnline(peerId)
-            _activeConversation.value = repository.getConversation(peerId)
-            _activePeer.value = repository.getPeer(peerId)
+        }
+    }
+
+    fun toggleMutePeer(peerId: String) {
+        viewModelScope.launch {
+            repository.toggleMutePeer(peerId)
+        }
+    }
+
+    fun toggleBlockPeer(peerId: String) {
+        viewModelScope.launch {
+            repository.toggleBlockPeer(peerId)
+        }
+    }
+
+    fun clearConversationHistory(peerId: String) {
+        viewModelScope.launch {
+            repository.clearConversationHistory(peerId)
+        }
+    }
+
+    fun deletePeerAndConversation(peerId: String) {
+        viewModelScope.launch {
+            repository.deletePeerAndConversation(peerId)
         }
     }
 

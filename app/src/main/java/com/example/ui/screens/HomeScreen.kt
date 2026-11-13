@@ -1,5 +1,9 @@
 package com.example.ui.screens
 
+import android.Manifest
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -10,10 +14,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.outlined.Chat
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.icons.outlined.People
 import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material.icons.outlined.PersonAdd
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -23,16 +27,20 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
+import android.content.pm.PackageManager
 import com.example.ui.ChatViewModel
 import com.example.ui.theme.ClestraBubbleSent
 import com.example.ui.theme.ClestraCharcoal
@@ -48,7 +56,24 @@ fun HomeScreen(
     onOpenNewChat: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { _ -> }
+
+    LaunchedEffect(Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val granted = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
+            if (!granted) {
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+    }
 
     Scaffold(
         containerColor = ClestraCream,
@@ -94,13 +119,13 @@ fun HomeScreen(
                         onClick = { selectedTab = 1 },
                         icon = {
                             Icon(
-                                imageVector = if (selectedTab == 1) Icons.Filled.PersonAdd else Icons.Outlined.PersonAdd,
-                                contentDescription = "Requests"
+                                imageVector = if (selectedTab == 1) Icons.Filled.People else Icons.Outlined.People,
+                                contentDescription = "Contacts"
                             )
                         },
                         label = {
                             Text(
-                                text = "Requests",
+                                text = "Contacts",
                                 fontSize = 12.sp,
                                 fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Medium
                             )
@@ -112,7 +137,7 @@ fun HomeScreen(
                             unselectedTextColor = ClestraTextSoft,
                             indicatorColor = ClestraBubbleSent.copy(alpha = 0.5f)
                         ),
-                        modifier = Modifier.testTag("nav_requests")
+                        modifier = Modifier.testTag("nav_contacts")
                     )
 
                     NavigationBarItem(
@@ -172,7 +197,7 @@ fun HomeScreen(
                     onOpenChat = onOpenChat,
                     onOpenNewChat = onOpenNewChat
                 )
-                1 -> RequestsScreen(
+                1 -> ContactsScreen(
                     viewModel = viewModel,
                     onChatWithPeer = onOpenChat
                 )
