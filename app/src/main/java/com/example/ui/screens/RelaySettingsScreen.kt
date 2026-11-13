@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -26,24 +27,15 @@ import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.NetworkCheck
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -63,8 +55,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.ChatViewModel
+import com.example.ui.components.ClestraPillInput
+import com.example.ui.theme.ClestraBubbleSent
+import com.example.ui.theme.ClestraCharcoal
+import com.example.ui.theme.ClestraCopper
+import com.example.ui.theme.ClestraCopperDark
+import com.example.ui.theme.ClestraCream
+import com.example.ui.theme.ClestraOnline
+import com.example.ui.theme.ClestraTextSoft
+import com.example.ui.theme.ClestraWarmBeige
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RelaySettingsScreen(
     viewModel: ChatViewModel,
@@ -86,7 +86,6 @@ fun RelaySettingsScreen(
 
     val myId = account?.id ?: "CLS-CONNECTING"
     val myName = account?.displayName ?: "Clestra User"
-    val myAvatar = account?.avatarIcon ?: "🍑"
 
     val serverlessSnippet = remember {
         """
@@ -107,18 +106,15 @@ module.exports = async (req, res) => {
   const col = db.collection('pending_messages');
 
   if (req.method === 'POST') {
-    // POST /api/messages/send
     const { senderId, recipientId, compressedContent, timestamp } = req.body;
     await col.insertOne({ senderId, recipientId, compressedContent, timestamp, delivered: false });
     return res.status(201).json({ success: true, status: 'queued_offline_serverless' });
   }
 
   if (req.method === 'GET') {
-    // GET /api/messages/sync?recipientId=...
     const recipientId = req.query.recipientId;
     const pending = await col.find({ recipientId }).sort({ timestamp: 1 }).toArray();
     if (pending.length > 0) {
-      // Auto-cleanup: keep MongoDB storage near 0 MB!
       await col.deleteMany({ _id: { ${'$'}in: pending.map(m => m._id) } });
     }
     return res.status(200).json({ success: true, count: pending.length, messages: pending });
@@ -127,71 +123,70 @@ module.exports = async (req, res) => {
         """.trimIndent()
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        "Relay & Secrets",
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack, modifier = Modifier.testTag("settings_back_button")) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
-            )
-        },
-        containerColor = MaterialTheme.colorScheme.background,
+    Column(
         modifier = modifier
-    ) { innerPadding ->
+            .fillMaxSize()
+            .background(ClestraCream)
+    ) {
+        Surface(
+            color = Color.White,
+            shadowElevation = 4.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier
+                    .statusBarsPadding()
+                    .fillMaxWidth()
+                    .padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = onBack,
+                    modifier = Modifier.testTag("settings_back_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = ClestraCopper
+                    )
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Settings & Relay",
+                    color = ClestraCharcoal,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+
         LazyColumn(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
+            modifier = Modifier.fillMaxSize()
         ) {
-            // My Permanent Identity Card
             item {
-                Card(
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color.White,
+                    shadowElevation = 1.dp,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(myAvatar, fontSize = 24.sp)
-                                Spacer(Modifier.width(8.dp))
-                                Column {
-                                    Text(
-                                        text = myName,
-                                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                                    )
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(Icons.Default.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(11.dp))
-                                        Spacer(Modifier.width(3.dp))
-                                        Text(
-                                            text = "Permanent Clestra ID (Locked)",
-                                            fontSize = 11.sp,
-                                            color = MaterialTheme.colorScheme.outline
-                                        )
-                                    }
-                                }
-                            }
+                        Text(
+                            text = myName,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = ClestraCharcoal
+                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Lock, contentDescription = null, tint = ClestraTextSoft, modifier = Modifier.size(12.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                text = "Permanent Clestra ID",
+                                fontSize = 11.sp,
+                                color = ClestraTextSoft
+                            )
                         }
 
                         Spacer(Modifier.height(10.dp))
@@ -199,8 +194,8 @@ module.exports = async (req, res) => {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f))
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(ClestraBubbleSent.copy(alpha = 0.55f))
                                 .padding(horizontal = 12.dp, vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
@@ -210,7 +205,7 @@ module.exports = async (req, res) => {
                                 fontFamily = FontFamily.Monospace,
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
+                                color = ClestraCharcoal
                             )
                             IconButton(
                                 onClick = {
@@ -219,75 +214,72 @@ module.exports = async (req, res) => {
                                 },
                                 modifier = Modifier.size(32.dp)
                             ) {
-                                Icon(Icons.Default.ContentCopy, contentDescription = "Copy ID", modifier = Modifier.size(16.dp))
+                                Icon(Icons.Default.ContentCopy, contentDescription = "Copy ID", tint = ClestraCopperDark, modifier = Modifier.size(16.dp))
                             }
                         }
                     }
                 }
             }
 
-            // MongoDB Atlas Secrets Status Card
             item {
-                Card(
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color.White,
+                    shadowElevation = 1.dp,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                Icons.Default.Key,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(22.dp)
-                            )
+                            Icon(Icons.Default.Key, contentDescription = null, tint = ClestraCopper, modifier = Modifier.size(20.dp))
                             Spacer(Modifier.width(8.dp))
                             Text(
                                 text = "MongoDB Secrets Status",
-                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = ClestraCharcoal
                             )
                         }
 
-                        Spacer(Modifier.height(8.dp))
+                        Spacer(Modifier.height(10.dp))
 
                         if (mongoSecret.isNotBlank()) {
                             Surface(
-                                shape = RoundedCornerShape(10.dp),
-                                color = Color(0xFFE8F5E9),
+                                shape = RoundedCornerShape(12.dp),
+                                color = ClestraOnline.copy(alpha = 0.14f),
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Row(
                                     modifier = Modifier.padding(12.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF2E7D32), modifier = Modifier.size(18.dp))
+                                    Icon(Icons.Default.CheckCircle, contentDescription = null, tint = ClestraOnline, modifier = Modifier.size(18.dp))
                                     Spacer(Modifier.width(8.dp))
                                     Text(
-                                        text = "MONGODB_URI secret injected via AI Studio BuildConfig!",
+                                        text = "MONGODB_URI configured via BuildConfig.",
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.SemiBold,
-                                        color = Color(0xFF1B5E20)
+                                        color = ClestraCharcoal
                                     )
                                 }
                             }
                         } else {
                             Surface(
-                                shape = RoundedCornerShape(10.dp),
-                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
+                                shape = RoundedCornerShape(12.dp),
+                                color = ClestraWarmBeige,
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Column(modifier = Modifier.padding(12.dp)) {
                                     Text(
-                                        text = "MONGODB_URI Secret: Not configured in Secrets panel yet.",
+                                        text = "MONGODB_URI not configured yet.",
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.primary
+                                        color = ClestraCopperDark
                                     )
                                     Spacer(Modifier.height(4.dp))
                                     Text(
-                                        text = "You can add MONGODB_URI in the AI Studio Secrets panel, or connect to your serverless relay endpoint URL below.",
+                                        text = "Add MONGODB_URI in the AI Studio Secrets panel or set your serverless relay endpoint URL below.",
                                         fontSize = 11.sp,
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                                        color = ClestraTextSoft
                                     )
                                 }
                             }
@@ -296,46 +288,40 @@ module.exports = async (req, res) => {
                 }
             }
 
-            // Serverless Relay Endpoint Card
             item {
-                Card(
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color.White,
+                    shadowElevation = 1.dp,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                Icons.Default.Dns,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(22.dp)
-                            )
+                            Icon(Icons.Default.Dns, contentDescription = null, tint = ClestraCopper, modifier = Modifier.size(20.dp))
                             Spacer(Modifier.width(8.dp))
                             Text(
                                 text = "Serverless Relay Endpoint",
-                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = ClestraCharcoal
                             )
                         }
 
                         Spacer(Modifier.height(8.dp))
                         Text(
-                            text = "URL for offline message store and sync. If offline, the built-in zero-cost local simulator queues and clears messages automatically.",
+                            text = "URL for offline message queuing and sync.",
                             fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = ClestraTextSoft
                         )
 
                         Spacer(Modifier.height(12.dp))
 
-                        OutlinedTextField(
+                        ClestraPillInput(
                             value = urlInput,
                             onValueChange = { urlInput = it },
-                            label = { Text("Relay URL") },
-                            placeholder = { Text("https://clestra-relay.vercel.app") },
-                            singleLine = true,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .testTag("relay_url_input")
+                            hint = "https://clestra-relay.vercel.app",
+                            containerColor = ClestraCream,
+                            modifier = Modifier.testTag("relay_url_input")
                         )
 
                         Spacer(Modifier.height(10.dp))
@@ -346,11 +332,12 @@ module.exports = async (req, res) => {
                                     viewModel.updateServerlessUrl(urlInput.trim())
                                     viewModel.testRelayConnection()
                                 },
+                                shape = RoundedCornerShape(12.dp),
                                 modifier = Modifier.testTag("test_relay_button")
                             ) {
-                                Icon(Icons.Default.NetworkCheck, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Icon(Icons.Default.NetworkCheck, contentDescription = null, tint = ClestraCopper, modifier = Modifier.size(16.dp))
                                 Spacer(Modifier.width(6.dp))
-                                Text("Test Connection")
+                                Text("Test", color = ClestraCopper)
                             }
 
                             Spacer(Modifier.width(8.dp))
@@ -360,26 +347,26 @@ module.exports = async (req, res) => {
                                     viewModel.updateServerlessUrl(urlInput.trim())
                                     Toast.makeText(context, "URL saved", Toast.LENGTH_SHORT).show()
                                 },
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = ClestraCopper, contentColor = Color.White),
                                 modifier = Modifier.testTag("save_url_button")
                             ) {
                                 Text("Save")
                             }
                         }
 
-                        // Test result feedback
                         if (testResult != null) {
                             Spacer(Modifier.height(10.dp))
                             Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
+                                shape = RoundedCornerShape(10.dp),
+                                color = ClestraWarmBeige,
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Text(
                                     text = testResult ?: "",
                                     fontSize = 12.sp,
-                                    modifier = Modifier.padding(10.dp),
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    color = ClestraCharcoal,
+                                    modifier = Modifier.padding(10.dp)
                                 )
                             }
                         }
@@ -387,25 +374,22 @@ module.exports = async (req, res) => {
                 }
             }
 
-            // Manual Sync Action Card
             item {
-                Card(
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color.White,
+                    shadowElevation = 1.dp,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                Icons.Default.Cloud,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.secondary,
-                                modifier = Modifier.size(22.dp)
-                            )
+                            Icon(Icons.Default.Cloud, contentDescription = null, tint = ClestraCopper, modifier = Modifier.size(20.dp))
                             Spacer(Modifier.width(8.dp))
                             Text(
                                 text = "Message Synchronization",
-                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = ClestraCharcoal
                             )
                         }
 
@@ -413,7 +397,7 @@ module.exports = async (req, res) => {
                         Text(
                             text = "Sync status: $syncStatus",
                             fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = ClestraTextSoft
                         )
 
                         Spacer(Modifier.height(12.dp))
@@ -421,19 +405,14 @@ module.exports = async (req, res) => {
                         Button(
                             onClick = { viewModel.syncNow() },
                             enabled = !isSyncing,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.secondary
-                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = ClestraCopper, contentColor = Color.White),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .testTag("manual_sync_button")
                         ) {
                             if (isSyncing) {
-                                CircularProgressIndicator(
-                                    color = Color.White,
-                                    modifier = Modifier.size(16.dp),
-                                    strokeWidth = 2.dp
-                                )
+                                CircularProgressIndicator(color = Color.White, modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
                                 Spacer(Modifier.width(8.dp))
                                 Text("Syncing...")
                             } else {
@@ -446,40 +425,12 @@ module.exports = async (req, res) => {
                 }
             }
 
-            // Zero-Cost MongoDB Atlas Architecture Info Card
             item {
-                Card(
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                    )
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(
-                            text = "💡 Zero-Cost Architecture & Auto-Cleanup",
-                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Spacer(Modifier.height(6.dp))
-                        Text(
-                            text = "• Free MongoDB Atlas M0 cluster limit: 512 MB\n" +
-                                    "• Clestra uses ephemeral delivery: once the recipient fetches their messages via GET /api/messages/sync, the backend immediately deletes them from MongoDB.\n" +
-                                    "• Result: active database storage stays near 0 MB at all times!\n" +
-                                    "• Direct P2P: When both users are online, messages stream peer-to-peer with 0 server involvement.",
-                            fontSize = 12.sp,
-                            lineHeight = 18.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            }
-
-            // Serverless Code Snippet & Copy Card
-            item {
-                Card(
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color.White,
+                    shadowElevation = 1.dp,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Row(
@@ -488,16 +439,13 @@ module.exports = async (req, res) => {
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    Icons.Default.Code,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(20.dp)
-                                )
+                                Icon(Icons.Default.Code, contentDescription = null, tint = ClestraCopper, modifier = Modifier.size(20.dp))
                                 Spacer(Modifier.width(8.dp))
                                 Text(
                                     text = "Node.js Serverless API",
-                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = ClestraCharcoal
                                 )
                             }
 
@@ -508,22 +456,22 @@ module.exports = async (req, res) => {
                                 },
                                 modifier = Modifier.testTag("copy_snippet_button")
                             ) {
-                                Icon(Icons.Default.ContentCopy, contentDescription = "Copy Code", tint = MaterialTheme.colorScheme.primary)
+                                Icon(Icons.Default.ContentCopy, contentDescription = "Copy Code", tint = ClestraCopper)
                             }
                         }
 
                         Spacer(Modifier.height(8.dp))
 
                         Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = Color(0xFF1E1A18),
+                            shape = RoundedCornerShape(12.dp),
+                            color = ClestraCharcoal,
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
                                 text = serverlessSnippet,
                                 fontFamily = FontFamily.Monospace,
                                 fontSize = 10.sp,
-                                color = Color(0xFFFFCCBC),
+                                color = ClestraBubbleSent,
                                 modifier = Modifier.padding(12.dp)
                             )
                         }

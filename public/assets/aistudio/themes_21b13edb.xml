@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <style name="Theme.Clestra" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/copper</item>
+        <item name="colorPrimaryVariant">@color/copperDark</item>
+        <item name="colorOnPrimary">@color/cream</item>
+        <item name="colorSecondary">@color/sand</item>
+        <item name="colorOnSecondary">@color/charcoal</item>
+        <item name="android:statusBarColor" tools:targetApi="l">@color/copperDark</item>
+    </style>
+</resources>

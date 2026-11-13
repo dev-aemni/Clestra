@@ -21,6 +21,12 @@ interface AccountDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun saveAccount(account: UserAccountEntity)
 
+    @Query("UPDATE account SET photoUri = :photoUri")
+    suspend fun updatePhotoUri(photoUri: String?)
+
+    @Query("UPDATE account SET bio = :bio")
+    suspend fun updateBio(bio: String)
+
     @Query("DELETE FROM account")
     suspend fun clearAccount()
 }

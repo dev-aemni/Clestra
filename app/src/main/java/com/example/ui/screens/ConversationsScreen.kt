@@ -1,13 +1,9 @@
 package com.example.ui.screens
 
-import android.widget.Toast
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -27,47 +24,30 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Cloud
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.FlashOn
-import androidx.compose.material.icons.filled.People
-import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.PrimaryTabRow
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -76,390 +56,204 @@ import androidx.compose.ui.unit.sp
 import com.example.R
 import com.example.data.model.ConversationEntity
 import com.example.ui.ChatViewModel
-import com.example.ui.components.PeerAvatar
-import com.example.ui.components.RouteBadge
-import com.example.ui.theme.PeachBubbleSent
-import com.example.ui.theme.PeachBubbleSentGradientEnd
+import com.example.ui.theme.ClestraBubbleRecv
+import com.example.ui.theme.ClestraBubbleSent
+import com.example.ui.theme.ClestraCharcoal
+import com.example.ui.theme.ClestraCopper
+import com.example.ui.theme.ClestraCream
+import com.example.ui.theme.ClestraOnline
+import com.example.ui.theme.ClestraSand
+import com.example.ui.theme.ClestraTextSoft
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConversationsScreen(
     viewModel: ChatViewModel,
     onOpenChat: (String) -> Unit,
-    onOpenPeers: () -> Unit,
-    onOpenSettings: () -> Unit,
     onOpenNewChat: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
-    val clipboard = LocalClipboardManager.current
-    val account by viewModel.userAccount.collectAsState()
     val conversations by viewModel.filteredConversations.collectAsState()
-    val selectedTab by viewModel.selectedFilterTab.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
-    val p2pCount by viewModel.p2pMessagesCount.collectAsState()
-    val relayCount by viewModel.relayMessagesCount.collectAsState()
-    val isSyncing by viewModel.isSyncing.collectAsState()
-    val syncStatus by viewModel.syncStatus.collectAsState()
+    var showSearch by remember { mutableStateOf(false) }
 
-    // Sync button rotation animation
-    val infiniteTransition = rememberInfiniteTransition(label = "sync_spin")
-    val rotation by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1000, easing = LinearEasing)
-        ),
-        label = "rotation"
-    )
-
-    val myId = account?.id ?: "CLS-CONNECTING"
-    val myName = account?.displayName ?: "Clestra User"
-    val myAvatar = account?.avatarIcon ?: "🍑"
-    val myColor = account?.avatarColor ?: 0xFFFF7043
-
-    Scaffold(
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(30.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    Brush.linearGradient(
-                                        listOf(PeachBubbleSent, PeachBubbleSentGradientEnd)
-                                    )
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(myAvatar, fontSize = 16.sp)
-                        }
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Column {
-                            Text(
-                                text = "Clestra",
-                                style = MaterialTheme.typography.titleLarge.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            )
-                            Text(
-                                text = "P2P & Serverless Offline Relay",
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    fontSize = 10.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            )
-                        }
-                    }
-                },
-                actions = {
-                    IconButton(
-                        onClick = { viewModel.syncNow() },
-                        modifier = Modifier.testTag("sync_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Refresh,
-                            contentDescription = "Sync Messages",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.rotate(if (isSyncing) rotation else 0f)
-                        )
-                    }
-                    IconButton(
-                        onClick = onOpenPeers,
-                        modifier = Modifier.testTag("peers_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.People,
-                            contentDescription = "Contacts & Mesh",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                    IconButton(
-                        onClick = onOpenSettings,
-                        modifier = Modifier.testTag("settings_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = "Backend Settings",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
-                )
-            )
-        },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = onOpenNewChat,
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier.testTag("new_chat_fab")
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "New Chat")
-            }
-        },
-        containerColor = MaterialTheme.colorScheme.background,
+    Column(
         modifier = modifier
-    ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
+            .fillMaxSize()
+            .background(ClestraCream)
+    ) {
+        // Top App Bar matching fragment_chat_list_27b38c16.xml
+        Surface(
+            color = Color.White,
+            shadowElevation = 2.dp,
+            modifier = Modifier.fillMaxWidth()
         ) {
-            // My Clestra Permanent ID Card
-            Card(
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
-                ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 6.dp)
-            ) {
+            Column(modifier = Modifier.statusBarsPadding()) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 14.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(38.dp)
-                                .clip(CircleShape)
-                                .background(Color(myColor)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(myAvatar, fontSize = 20.sp)
-                        }
-                        Spacer(Modifier.width(10.dp))
-                        Column {
-                            Text(
-                                text = myName,
-                                fontWeight = FontWeight.Bold,
-                                style = MaterialTheme.typography.titleSmall
-                            )
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = "ID: $myId",
-                                    fontFamily = FontFamily.Monospace,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                        }
-                    }
-
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.surface,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(12.dp))
-                            .clickable {
-                                clipboard.setText(AnnotatedString(myId))
-                                Toast.makeText(context, "Clestra ID copied: $myId", Toast.LENGTH_SHORT).show()
-                            }
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                Icons.Default.ContentCopy,
-                                contentDescription = "Copy ID",
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Spacer(Modifier.width(4.dp))
-                            Text(
-                                "Copy",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    }
-                }
-            }
-
-            // Stats row
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
-                shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 14.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.FlashOn, contentDescription = null, tint = Color(0xFF2E7D32), modifier = Modifier.size(15.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text("P2P Direct: $p2pCount", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                    }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Cloud, contentDescription = null, tint = Color(0xFFE65100), modifier = Modifier.size(15.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text("Serverless: $relayCount", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                    }
+                    Image(
+                        painter = painterResource(id = R.drawable.logo),
+                        contentDescription = "Clestra",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                    )
+
+                    Spacer(modifier = Modifier.width(10.dp))
+
                     Text(
-                        text = syncStatus,
-                        fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.outline,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        text = "Clestra",
+                        color = ClestraCharcoal,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f)
                     )
-                }
-            }
 
-            // Search Bar
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { viewModel.searchQuery.value = it },
-                placeholder = { Text("Search by Clestra ID or message...") },
-                leadingIcon = {
-                    Icon(
-                        Icons.Default.Search,
-                        contentDescription = "Search",
-                        tint = MaterialTheme.colorScheme.outline
-                    )
-                },
-                singleLine = true,
-                shape = RoundedCornerShape(24.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.surfaceVariant,
-                    focusedContainerColor = MaterialTheme.colorScheme.surface,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surface
-                ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 6.dp)
-                    .testTag("search_field")
-            )
-
-            // Tabs for filtering
-            PrimaryTabRow(
-                selectedTabIndex = selectedTab,
-                containerColor = MaterialTheme.colorScheme.background,
-                contentColor = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(horizontal = 8.dp)
-            ) {
-                Tab(
-                    selected = selectedTab == 0,
-                    onClick = { viewModel.selectedFilterTab.value = 0 },
-                    text = { Text("All", fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal) },
-                    modifier = Modifier.testTag("tab_all")
-                )
-                Tab(
-                    selected = selectedTab == 1,
-                    onClick = { viewModel.selectedFilterTab.value = 1 },
-                    text = { Text("⚡ P2P Online", fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal) },
-                    modifier = Modifier.testTag("tab_p2p")
-                )
-                Tab(
-                    selected = selectedTab == 2,
-                    onClick = { viewModel.selectedFilterTab.value = 2 },
-                    text = { Text("☁️ Relay", fontWeight = if (selectedTab == 2) FontWeight.Bold else FontWeight.Normal) },
-                    modifier = Modifier.testTag("tab_relay")
-                )
-            }
-
-            // Conversation List or Beautiful Empty State
-            if (conversations.isEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(24.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.fillMaxWidth()
+                    IconButton(
+                        onClick = {
+                            if (showSearch) {
+                                viewModel.searchQuery.value = ""
+                            }
+                            showSearch = !showSearch
+                        },
+                        modifier = Modifier.testTag("btn_search")
                     ) {
-                        // Peach Art in Empty State
-                        Card(
-                            shape = RoundedCornerShape(24.dp),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                            modifier = Modifier
-                                .fillMaxWidth(0.9f)
-                                .height(160.dp)
-                        ) {
-                            Image(
-                                painter = painterResource(id = R.drawable.img_peach_art_1794255189630),
-                                contentDescription = "Peach Artwork",
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize()
-                            )
-                        }
-
-                        Spacer(Modifier.height(16.dp))
-
-                        Text(
-                            text = if (searchQuery.isNotEmpty()) "No matching conversations" else "Your inbox is peaceful & clear",
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onSurface
+                        Icon(
+                            imageVector = if (showSearch) Icons.Default.Close else Icons.Default.Search,
+                            contentDescription = "Search chats",
+                            tint = ClestraTextSoft,
+                            modifier = Modifier.size(28.dp)
                         )
-
-                        Spacer(Modifier.height(6.dp))
-
-                        Text(
-                            text = "Share your unique Clestra ID with friends so they can reach you directly over P2P or offline relay.",
-                            fontSize = 13.sp,
-                            textAlign = TextAlign.Center,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 16.dp)
-                        )
-
-                        Spacer(Modifier.height(18.dp))
-
-                        Button(
-                            onClick = onOpenNewChat,
-                            shape = RoundedCornerShape(16.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                            modifier = Modifier.testTag("empty_start_chat_button")
-                        ) {
-                            Icon(Icons.Default.Add, contentDescription = null)
-                            Spacer(Modifier.width(6.dp))
-                            Text("Start Chat with Clestra ID")
-                        }
                     }
                 }
-            } else {
-                LazyColumn(
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .testTag("conversations_list")
+
+                AnimatedVisibility(visible = showSearch) {
+                    TextField(
+                        value = searchQuery,
+                        onValueChange = { viewModel.searchQuery.value = it },
+                        placeholder = {
+                            Text(
+                                text = "Search conversations...",
+                                color = ClestraTextSoft,
+                                fontSize = 14.sp
+                            )
+                        },
+                        singleLine = true,
+                        shape = RoundedCornerShape(16.dp),
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = ClestraCream,
+                            unfocusedContainerColor = ClestraCream,
+                            focusedIndicatorColor = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent,
+                            focusedTextColor = ClestraCharcoal,
+                            unfocusedTextColor = ClestraCharcoal,
+                            cursorColor = ClestraCopper
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 16.dp, end = 16.dp, bottom = 12.dp)
+                            .testTag("search_field")
+                    )
+                }
+            }
+        }
+
+        // Chat list or clean empty state
+        if (conversations.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(32.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    items(conversations, key = { it.peerId }) { convo ->
-                        ConversationItem(
-                            conversation = convo,
-                            onClick = { onOpenChat(convo.peerId) }
+                    Box(
+                        modifier = Modifier
+                            .size(84.dp)
+                            .clip(RoundedCornerShape(22.dp))
+                            .background(ClestraBubbleSent),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.logo),
+                            contentDescription = "Clestra Logo",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .size(64.dp)
+                                .clip(RoundedCornerShape(16.dp))
                         )
                     }
+
+                    Spacer(modifier = Modifier.height(18.dp))
+
+                    Text(
+                        text = if (searchQuery.isNotEmpty()) "No matching chats" else "No conversations yet",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = ClestraCharcoal
+                    )
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Text(
+                        text = "Start a private, end-to-end encrypted chat with a friend's username or Clestra ID.",
+                        fontSize = 14.sp,
+                        color = ClestraTextSoft,
+                        textAlign = TextAlign.Center
+                    )
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    Button(
+                        onClick = onOpenNewChat,
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = ClestraCopper,
+                            contentColor = Color.White
+                        ),
+                        modifier = Modifier
+                            .height(48.dp)
+                            .testTag("empty_start_chat_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Start New Chat",
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        } else {
+            LazyColumn(
+                contentPadding = PaddingValues(top = 8.dp, bottom = 88.dp),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .testTag("conversations_list")
+            ) {
+                items(conversations, key = { it.peerId }) { convo ->
+                    ConversationItem(
+                        conversation = convo,
+                        onClick = { onOpenChat(convo.peerId) }
+                    )
+                    HorizontalDivider(
+                        color = ClestraSand.copy(alpha = 0.35f),
+                        modifier = Modifier.padding(start = 80.dp, end = 16.dp)
+                    )
                 }
             }
         }
@@ -472,98 +266,99 @@ fun ConversationItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Card(
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+    Row(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
             .clickable { onClick() }
-            .testTag("conversation_item_${conversation.peerId}")
+            .padding(16.dp)
+            .testTag("conversation_item_${conversation.peerId}"),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier
-                .padding(12.dp)
-                .fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            PeerAvatar(
-                name = conversation.peerName,
-                avatarColorHex = conversation.peerAvatarColor,
-                isOnline = conversation.isPeerOnline,
-                avatarIcon = conversation.peerAvatarIcon,
-                size = 50.dp
+        // Avatar matching item_chat_row_cf60456b.xml (48dp x 48dp, bg_bubble_sent 16dp rounded)
+        Box(modifier = Modifier.size(48.dp)) {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(ClestraBubbleSent),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = conversation.peerName.firstOrNull()?.uppercase() ?: "?",
+                    color = ClestraCharcoal,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .size(12.dp)
+                    .align(Alignment.BottomEnd)
+                    .clip(CircleShape)
+                    .background(if (conversation.isPeerOnline) ClestraOnline else ClestraCopper)
+                    .border(2.dp, ClestraCream, CircleShape)
             )
+        }
 
-            Spacer(Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(16.dp))
 
-            Column(modifier = Modifier.weight(1f)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = conversation.peerName,
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.SemiBold
-                        ),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
-                    )
+        Column(modifier = Modifier.weight(1f)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = conversation.peerName,
+                    color = ClestraCharcoal,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
 
-                    Text(
-                        text = formatTime(conversation.lastTimestamp),
-                        fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.outline
-                    )
-                }
+                Spacer(modifier = Modifier.width(8.dp))
 
-                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = formatTime(conversation.lastTimestamp),
+                    color = ClestraTextSoft,
+                    fontSize = 11.sp
+                )
+            }
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        modifier = Modifier.weight(1f),
-                        verticalAlignment = Alignment.CenterVertically
+            Spacer(modifier = Modifier.height(2.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = conversation.lastMessage,
+                    color = ClestraTextSoft,
+                    fontSize = 14.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+
+                if (conversation.unreadCount > 0) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Box(
+                        modifier = Modifier
+                            .size(20.dp)
+                            .clip(CircleShape)
+                            .background(ClestraCopper),
+                        contentAlignment = Alignment.Center
                     ) {
-                        RouteBadge(
-                            deliveryRoute = conversation.lastDeliveryRoute,
-                            isCompact = true
-                        )
-                        Spacer(Modifier.width(6.dp))
                         Text(
-                            text = conversation.lastMessage,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            text = conversation.unreadCount.toString(),
+                            color = Color.White,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
                         )
-                    }
-
-                    if (conversation.unreadCount > 0) {
-                        Spacer(Modifier.width(8.dp))
-                        Box(
-                            modifier = Modifier
-                                .size(20.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.primary),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = conversation.unreadCount.toString(),
-                                color = Color.White,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
                     }
                 }
             }

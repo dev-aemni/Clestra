@@ -95,9 +95,54 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val _relayTestResult = MutableStateFlow<String?>(null)
     val relayTestResult: StateFlow<String?> = _relayTestResult.asStateFlow()
 
-    fun setupAccount(name: String, avatarIcon: String, avatarColor: Long, password: String) {
+    private val _friendRequestStatus = MutableStateFlow("")
+    val friendRequestStatus: StateFlow<String> = _friendRequestStatus.asStateFlow()
+
+    fun setupAccount(
+        name: String,
+        avatarIcon: String = "🍑",
+        avatarColor: Long = 0xFFC4763A,
+        password: String,
+        username: String = ""
+    ) {
         viewModelScope.launch {
-            repository.setupAccount(name, avatarIcon, avatarColor, password)
+            repository.setupAccount(
+                name = name,
+                avatarIcon = avatarIcon,
+                avatarColor = avatarColor,
+                password = password,
+                username = username
+            )
+        }
+    }
+
+    fun updateProfilePhoto(photoUri: String?) {
+        viewModelScope.launch {
+            repository.updateProfilePhoto(photoUri)
+        }
+    }
+
+    fun updateProfileBio(bio: String) {
+        viewModelScope.launch {
+            repository.updateProfileBio(bio)
+        }
+    }
+
+    fun sendFriendRequest(usernameOrId: String) {
+        val trimmed = usernameOrId.trim()
+        if (trimmed.isBlank()) {
+            _friendRequestStatus.value = "Please enter a username or Clestra ID."
+            return
+        }
+        viewModelScope.launch {
+            val normalizedId = if (trimmed.startsWith("CLS-", ignoreCase = true)) {
+                trimmed.uppercase()
+            } else {
+                "CLS-${trimmed.uppercase().take(4).padEnd(4, 'X')}-PEER"
+            }
+            val displayName = if (trimmed.startsWith("CLS-", ignoreCase = true)) trimmed else trimmed
+            repository.addPeer(normalizedId, displayName)
+            _friendRequestStatus.value = "Request sent & connected with $displayName ($normalizedId)"
         }
     }
 
@@ -116,12 +161,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         _activePeer.value = null
     }
 
-    fun sendMessage(content: String) {
+    fun sendMessage(content: String, mediaUri: String? = null) {
         val peerId = _activePeerId.value ?: return
-        if (content.isBlank()) return
+        if (content.isBlank() && mediaUri == null) return
 
         viewModelScope.launch {
-            repository.sendMessage(peerId, content.trim())
+            repository.sendMessage(peerId, content.trim(), mediaUri)
             _activeConversation.value = repository.getConversation(peerId)
             _activePeer.value = repository.getPeer(peerId)
         }

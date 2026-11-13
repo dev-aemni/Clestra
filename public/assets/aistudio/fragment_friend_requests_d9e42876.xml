@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="20dp"
+    android:background="@color/cream">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Friend Requests"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:textColor="@color/charcoal" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:text="Send request by username"
+        android:textColor="@color/textSoft" />
+
+    <EditText
+        android:id="@+id/etRequestUsername"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:layout_marginTop="12dp"
+        android:background="@drawable/bg_bubble_recv"
+        android:hint="Enter username"
+        android:paddingHorizontal="16dp"
+        android:textColor="@color/charcoal"
+        android:textColorHint="@color/textSoft" />
+
+    <Button
+        android:id="@+id/btnSendRequest"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:layout_marginTop="10dp"
+        android:text="Send Request"
+        android:backgroundTint="@color/copper"
+        android:textColor="@android:color/white" />
+
+    <TextView
+        android:id="@+id/tvRequestStatus"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:textColor="@color/charcoal" />
+</LinearLayout>

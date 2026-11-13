@@ -1,73 +1,60 @@
 package com.example.ui.theme
 
-import android.os.Build
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.Color
 
-private val DarkColorScheme = darkColorScheme(
-    primary = PeachPrimaryDark,
-    onPrimary = PeachOnPrimaryDark,
-    primaryContainer = PeachPrimaryContainerDark,
-    onPrimaryContainer = PeachOnPrimaryContainerDark,
-    secondary = PeachSecondaryDark,
-    onSecondary = PeachOnSecondaryDark,
-    secondaryContainer = PeachSecondaryContainerDark,
-    onSecondaryContainer = PeachOnSecondaryContainerDark,
-    tertiary = PeachTertiaryDark,
-    onTertiary = PeachOnTertiaryDark,
-    tertiaryContainer = PeachTertiaryContainerDark,
-    onTertiaryContainer = PeachOnTertiaryContainerDark,
-    background = PeachBackgroundDark,
-    onBackground = PeachOnBackgroundDark,
-    surface = PeachSurfaceDark,
-    onSurface = PeachOnSurfaceDark,
-    surfaceVariant = PeachSurfaceVariantDark,
-    onSurfaceVariant = PeachOnSurfaceVariantDark,
-    outline = PeachOutlineDark
+private val ClestraLightColorScheme = lightColorScheme(
+    primary = ClestraCopper,
+    onPrimary = Color.White,
+    primaryContainer = ClestraBubbleSent,
+    onPrimaryContainer = ClestraCharcoal,
+    secondary = ClestraSand,
+    onSecondary = ClestraCharcoal,
+    secondaryContainer = ClestraWarmBeige,
+    onSecondaryContainer = ClestraCharcoal,
+    tertiary = ClestraCopperDark,
+    onTertiary = ClestraCream,
+    tertiaryContainer = ClestraLightSkin,
+    onTertiaryContainer = ClestraCharcoal,
+    background = ClestraCream,
+    onBackground = ClestraCharcoal,
+    surface = ClestraBubbleRecv,
+    onSurface = ClestraCharcoal,
+    surfaceVariant = ClestraWarmBeige,
+    onSurfaceVariant = ClestraTextSoft,
+    outline = ClestraTextSoft,
+    error = ClestraError,
+    onError = Color.White
 )
 
-private val LightColorScheme = lightColorScheme(
-    primary = PeachPrimaryLight,
-    onPrimary = PeachOnPrimaryLight,
-    primaryContainer = PeachPrimaryContainerLight,
-    onPrimaryContainer = PeachOnPrimaryContainerLight,
-    secondary = PeachSecondaryLight,
-    onSecondary = PeachOnSecondaryLight,
-    secondaryContainer = PeachSecondaryContainerLight,
-    onSecondaryContainer = PeachOnSecondaryContainerLight,
-    tertiary = PeachTertiaryLight,
-    onTertiary = PeachOnTertiaryLight,
-    tertiaryContainer = PeachTertiaryContainerLight,
-    onTertiaryContainer = PeachOnTertiaryContainerLight,
-    background = PeachBackgroundLight,
-    onBackground = PeachOnBackgroundLight,
-    surface = PeachSurfaceLight,
-    onSurface = PeachOnSurfaceLight,
-    surfaceVariant = PeachSurfaceVariantLight,
-    onSurfaceVariant = PeachOnSurfaceVariantLight,
-    outline = PeachOutlineLight
+private val ClestraDarkColorScheme = darkColorScheme(
+    primary = ClestraCopper,
+    onPrimary = Color.White,
+    primaryContainer = ClestraCopperDark,
+    onPrimaryContainer = ClestraCream,
+    secondary = ClestraSand,
+    onSecondary = ClestraCharcoal,
+    background = ClestraCharcoal,
+    onBackground = ClestraCream,
+    surface = Color(0xFF36281F),
+    onSurface = ClestraCream,
+    surfaceVariant = Color(0xFF47362B),
+    onSurfaceVariant = ClestraSand,
+    outline = ClestraTextSoft,
+    error = ClestraError,
+    onError = Color.White
 )
 
 @Composable
 fun ClestraTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = false, // Keep signature Peach/Orange theme active
+    darkTheme: Boolean = false, // Follow the Cream/Charcoal/Copper XML theme by default
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
-    }
+    val colorScheme = if (darkTheme) ClestraDarkColorScheme else ClestraLightColorScheme
 
     MaterialTheme(
         colorScheme = colorScheme,
@@ -78,7 +65,7 @@ fun ClestraTheme(
 
 @Composable
 fun MyApplicationTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    darkTheme: Boolean = false,
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {

@@ -5,30 +5,106 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.FlashOn
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.ui.theme.StatusP2POnline
-import com.example.ui.theme.StatusServerlessRelay
+import com.example.ui.theme.ClestraBubbleRecv
+import com.example.ui.theme.ClestraBubbleSent
+import com.example.ui.theme.ClestraCharcoal
+import com.example.ui.theme.ClestraCopper
+import com.example.ui.theme.ClestraCopperDark
+import com.example.ui.theme.ClestraCream
+import com.example.ui.theme.ClestraOnline
+import com.example.ui.theme.ClestraTextSoft
+import com.example.ui.theme.ClestraWarmBeige
+
+@Composable
+fun ClestraPillInput(
+    value: String,
+    onValueChange: (String) -> Unit,
+    hint: String,
+    modifier: Modifier = Modifier,
+    isPassword: Boolean = false,
+    passwordVisible: Boolean = false,
+    onTogglePasswordVisible: (() -> Unit)? = null,
+    keyboardType: KeyboardType = KeyboardType.Text,
+    containerColor: Color = ClestraBubbleRecv
+) {
+    TextField(
+        value = value,
+        onValueChange = onValueChange,
+        placeholder = {
+            Text(
+                text = hint,
+                color = ClestraTextSoft,
+                fontSize = 15.sp
+            )
+        },
+        singleLine = true,
+        shape = RoundedCornerShape(16.dp),
+        visualTransformation = if (isPassword && !passwordVisible) {
+            PasswordVisualTransformation()
+        } else {
+            VisualTransformation.None
+        },
+        keyboardOptions = KeyboardOptions(
+            keyboardType = if (isPassword) KeyboardType.Password else keyboardType
+        ),
+        trailingIcon = if (isPassword && onTogglePasswordVisible != null) {
+            {
+                IconButton(onClick = onTogglePasswordVisible) {
+                    Icon(
+                        imageVector = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                        contentDescription = if (passwordVisible) "Hide password" else "Show password",
+                        tint = ClestraTextSoft
+                    )
+                }
+            }
+        } else null,
+        colors = TextFieldDefaults.colors(
+            focusedContainerColor = containerColor,
+            unfocusedContainerColor = containerColor,
+            disabledContainerColor = containerColor,
+            focusedIndicatorColor = Color.Transparent,
+            unfocusedIndicatorColor = Color.Transparent,
+            disabledIndicatorColor = Color.Transparent,
+            focusedTextColor = ClestraCharcoal,
+            unfocusedTextColor = ClestraCharcoal,
+            cursorColor = ClestraCopper
+        ),
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = 52.dp)
+    )
+}
 
 @Composable
 fun PeerAvatar(
@@ -39,8 +115,6 @@ fun PeerAvatar(
     size: Dp = 48.dp,
     modifier: Modifier = Modifier
 ) {
-    val baseColor = Color(avatarColorHex)
-
     Box(
         modifier = modifier
             .size(size)
@@ -49,37 +123,21 @@ fun PeerAvatar(
         Box(
             modifier = Modifier
                 .size(size)
-                .clip(CircleShape)
-                .background(
-                    Brush.radialGradient(
-                        colors = listOf(baseColor, baseColor.copy(alpha = 0.85f))
-                    )
-                ),
+                .clip(RoundedCornerShape(16.dp))
+                .background(ClestraBubbleSent),
             contentAlignment = Alignment.Center
         ) {
-            if (avatarIcon.isNotBlank()) {
-                Text(
-                    text = avatarIcon,
-                    fontSize = (size.value * 0.5f).sp
-                )
-            } else {
-                val initials = name.split(" ")
-                    .mapNotNull { it.firstOrNull()?.toString() }
-                    .take(2)
-                    .joinToString("")
-                    .ifEmpty { "?" }
-                Text(
-                    text = initials,
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = (size.value * 0.38f).sp
-                )
-            }
+            val initial = name.firstOrNull()?.uppercase() ?: "?"
+            Text(
+                text = initial,
+                color = ClestraCharcoal,
+                fontWeight = FontWeight.Bold,
+                fontSize = (size.value * 0.42f).sp
+            )
         }
 
-        // Online / Relay Indicator Dot
-        val statusColor = if (isOnline) StatusP2POnline else StatusServerlessRelay
-        val dotSize = size * 0.28f
+        val statusColor = if (isOnline) ClestraOnline else ClestraCopper
+        val dotSize = size * 0.26f
 
         Box(
             modifier = Modifier
@@ -87,7 +145,7 @@ fun PeerAvatar(
                 .align(Alignment.BottomEnd)
                 .clip(CircleShape)
                 .background(statusColor)
-                .border(2.dp, MaterialTheme.colorScheme.surface, CircleShape)
+                .border(2.dp, ClestraCream, CircleShape)
         )
     }
 }
@@ -99,16 +157,8 @@ fun RouteBadge(
     isCompact: Boolean = false
 ) {
     val isP2P = deliveryRoute == "P2P_DIRECT"
-    val bgColor = if (isP2P) {
-        Color(0xFFE8F5E9)
-    } else {
-        Color(0xFFFFEFE6)
-    }
-    val contentColor = if (isP2P) {
-        Color(0xFF2E7D32)
-    } else {
-        Color(0xFFE65100)
-    }
+    val bgColor = if (isP2P) ClestraOnline.copy(alpha = 0.14f) else ClestraWarmBeige
+    val contentColor = if (isP2P) ClestraOnline else ClestraCopperDark
     val label = if (isP2P) "P2P Direct" else "Relay Store"
     val icon = if (isP2P) Icons.Default.FlashOn else Icons.Default.Cloud
 
@@ -145,10 +195,9 @@ fun RouteToggleChip(
     onToggle: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val isP2P = isOnline
-    val bg = if (isP2P) Color(0xFFE8F5E9) else Color(0xFFFFECE2)
-    val fg = if (isP2P) Color(0xFF2E7D32) else Color(0xFFD84315)
-    val text = if (isP2P) "⚡ Online (P2P)" else "☁️ Offline (Relay)"
+    val bg = if (isOnline) ClestraOnline.copy(alpha = 0.14f) else ClestraBubbleSent
+    val fg = if (isOnline) ClestraOnline else ClestraCopperDark
+    val text = if (isOnline) "P2P Online" else "Relay Mode"
 
     Surface(
         shape = RoundedCornerShape(16.dp),

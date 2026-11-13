@@ -1,0 +1,5 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id="@+id/nav_chats" android:title="Chats" android:icon="@android:drawable/ic_dialog_email" />
+    <item android:id="@+id/nav_requests" android:title="Requests" android:icon="@android:drawable/ic_menu_add" />
+    <item android:id="@+id/nav_profile" android:title="Profile" android:icon="@android:drawable/ic_menu_myplaces" />
+</menu>

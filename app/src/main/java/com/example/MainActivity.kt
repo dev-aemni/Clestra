@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -24,11 +25,12 @@ import androidx.navigation.navArgument
 import com.example.ui.ChatViewModel
 import com.example.ui.components.NewChatDialog
 import com.example.ui.screens.ChatDetailScreen
-import com.example.ui.screens.ConversationsScreen
-import com.example.ui.screens.PeersScreen
+import com.example.ui.screens.HomeScreen
 import com.example.ui.screens.RelaySettingsScreen
 import com.example.ui.screens.SetupAccountScreen
+import com.example.ui.screens.SplashScreen
 import com.example.ui.theme.ClestraTheme
+import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
 
@@ -44,16 +46,28 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
+                    var showSplash by remember { mutableStateOf(true) }
                     val account by viewModel.userAccount.collectAsState()
 
+                    LaunchedEffect(Unit) {
+                        delay(1100)
+                        showSplash = false
+                    }
+
+                    val destinationState = when {
+                        showSplash -> "splash"
+                        account == null -> "setup"
+                        else -> "home"
+                    }
+
                     Crossfade(
-                        targetState = account != null,
-                        label = "onboarding_crossfade"
-                    ) { isConfigured ->
-                        if (!isConfigured) {
-                            SetupAccountScreen(viewModel = viewModel)
-                        } else {
-                            ClestraApp(viewModel = viewModel)
+                        targetState = destinationState,
+                        label = "root_crossfade"
+                    ) { state ->
+                        when (state) {
+                            "splash" -> SplashScreen()
+                            "setup" -> SetupAccountScreen(viewModel = viewModel)
+                            else -> ClestraApp(viewModel = viewModel)
                         }
                     }
                 }
@@ -70,16 +84,13 @@ fun ClestraApp(viewModel: ChatViewModel) {
 
     NavHost(
         navController = navController,
-        startDestination = "conversations"
+        startDestination = "home"
     ) {
-        composable("conversations") {
-            ConversationsScreen(
+        composable("home") {
+            HomeScreen(
                 viewModel = viewModel,
                 onOpenChat = { peerId ->
                     navController.navigate("chat/$peerId")
-                },
-                onOpenPeers = {
-                    navController.navigate("peers")
                 },
                 onOpenSettings = {
                     navController.navigate("settings")
@@ -100,20 +111,6 @@ fun ClestraApp(viewModel: ChatViewModel) {
                 peerId = peerId,
                 onBack = {
                     navController.popBackStack()
-                }
-            )
-        }
-
-        composable("peers") {
-            PeersScreen(
-                viewModel = viewModel,
-                onBack = {
-                    navController.popBackStack()
-                },
-                onChatWithPeer = { peerId ->
-                    navController.navigate("chat/$peerId") {
-                        popUpTo("conversations")
-                    }
                 }
             )
         }

@@ -11,10 +11,13 @@ import com.squareup.moshi.JsonClass
 @Entity(tableName = "account")
 data class UserAccountEntity(
     @PrimaryKey
-    val id: String, // Immutable Clestra ID (e.g. CLS-8A2F-9C14-E7B0)
+    val id: String, // Immutable Clestra ID (e.g. CLS-XXXX-XXXX-XXXX)
     val displayName: String,
-    val avatarIcon: String, // e.g. "🍑", "🌸", "✨", "🌅", "🌿", "🧡"
-    val avatarColor: Long = 0xFFFF7043,
+    val username: String = "",
+    val bio: String = "",
+    val photoUri: String? = null,
+    val avatarIcon: String = "🍑",
+    val avatarColor: Long = 0xFFC4763A,
     val passwordHash: String,
     val createdAt: Long = System.currentTimeMillis()
 )
@@ -35,7 +38,8 @@ data class MessageEntity(
     val deliveryRoute: String, // "P2P_DIRECT" or "SERVERLESS_RELAY"
     val status: String,        // "PENDING", "SENT", "DELIVERED", "READ"
     val isOutgoing: Boolean,
-    val reaction: String? = null
+    val reaction: String? = null,
+    val mediaUri: String? = null
 )
 
 /**

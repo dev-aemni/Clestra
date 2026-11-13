@@ -14,20 +14,14 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Chat
-import androidx.compose.material.icons.filled.Key
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DividerDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -38,12 +32,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.data.model.PeerEntity
+import com.example.ui.theme.ClestraBubbleRecv
+import com.example.ui.theme.ClestraCharcoal
+import com.example.ui.theme.ClestraCopper
+import com.example.ui.theme.ClestraCream
+import com.example.ui.theme.ClestraSand
+import com.example.ui.theme.ClestraTextSoft
 
 @Composable
 fun NewChatDialog(
@@ -54,13 +55,12 @@ fun NewChatDialog(
 ) {
     var customPeerId by remember { mutableStateOf("") }
     var customPeerName by remember { mutableStateOf("") }
-    // If peers list is empty, default directly to inputting a Clestra ID
     var showCustomInput by remember { mutableStateOf(peers.isEmpty()) }
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
-            shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = ClestraCream),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp)
@@ -68,29 +68,31 @@ fun NewChatDialog(
             Column(modifier = Modifier.padding(20.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
-                        Icons.Default.Chat,
+                        imageVector = Icons.AutoMirrored.Filled.Chat,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(24.dp)
+                        tint = ClestraCopper,
+                        modifier = Modifier.size(22.dp)
                     )
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "Start a Chat",
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                        color = ClestraCharcoal,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold
                     )
                 }
 
-                Spacer(Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
                 if (!showCustomInput && peers.isNotEmpty()) {
                     Text(
-                        text = "Saved Contacts & Peers:",
+                        text = "Saved Contacts",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.outline
+                        color = ClestraTextSoft
                     )
 
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     LazyColumn(
                         modifier = Modifier
@@ -110,83 +112,73 @@ fun NewChatDialog(
                                     name = peer.displayName,
                                     avatarColorHex = peer.avatarColor,
                                     isOnline = peer.isOnline,
-                                    avatarIcon = peer.avatarIcon,
                                     size = 40.dp
                                 )
-                                Spacer(Modifier.width(10.dp))
+                                Spacer(modifier = Modifier.width(10.dp))
                                 Column {
                                     Text(
                                         text = peer.displayName,
+                                        color = ClestraCharcoal,
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 14.sp
                                     )
                                     Text(
-                                        text = "ID: ${peer.peerId}",
+                                        text = peer.peerId,
                                         fontSize = 11.sp,
-                                        color = MaterialTheme.colorScheme.outline
+                                        color = ClestraTextSoft
                                     )
                                 }
                             }
                         }
                     }
 
-                    Spacer(Modifier.height(10.dp))
-                    HorizontalDivider(color = DividerDefaults.color.copy(alpha = 0.4f))
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
+                    HorizontalDivider(color = ClestraSand.copy(alpha = 0.6f))
+                    Spacer(modifier = Modifier.height(12.dp))
 
                     Button(
                         onClick = { showCustomInput = true },
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                        modifier = Modifier.fillMaxWidth().testTag("enter_custom_peer_button")
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = ClestraCopper,
+                            contentColor = Color.White
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("enter_custom_peer_button")
                     ) {
-                        Icon(Icons.Default.Add, contentDescription = null)
-                        Spacer(Modifier.width(6.dp))
-                        Text("Connect with Clestra ID")
+                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Connect with Clestra ID", fontWeight = FontWeight.Bold)
                     }
                 } else {
                     Text(
-                        text = "Enter a person's unique Clestra ID to connect directly over P2P or route messages via the offline relay.",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        text = "Enter a friend's Clestra ID or username to start chatting.",
+                        fontSize = 13.sp,
+                        color = ClestraTextSoft
                     )
 
-                    Spacer(Modifier.height(14.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
 
-                    OutlinedTextField(
+                    ClestraPillInput(
                         value = customPeerId,
                         onValueChange = { customPeerId = it.trim().uppercase() },
-                        label = { Text("Person's Clestra ID") },
-                        placeholder = { Text("e.g. CLS-8A2F-9C14-E7B0") },
-                        leadingIcon = {
-                            Icon(Icons.Default.Key, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        },
-                        singleLine = true,
-                        shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = MaterialTheme.colorScheme.primary
-                        ),
-                        modifier = Modifier.fillMaxWidth().testTag("peer_id_input")
+                        hint = "Clestra ID (e.g. CLS-8A2F-9C14)",
+                        containerColor = ClestraBubbleRecv,
+                        modifier = Modifier.testTag("peer_id_input")
                     )
 
-                    Spacer(Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
 
-                    OutlinedTextField(
+                    ClestraPillInput(
                         value = customPeerName,
                         onValueChange = { customPeerName = it },
-                        label = { Text("Contact Name (Optional)") },
-                        placeholder = { Text("e.g. Sam") },
-                        leadingIcon = {
-                            Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        },
-                        singleLine = true,
-                        shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = MaterialTheme.colorScheme.primary
-                        ),
-                        modifier = Modifier.fillMaxWidth().testTag("peer_name_input")
+                        hint = "Name (Optional)",
+                        containerColor = ClestraBubbleRecv,
+                        modifier = Modifier.testTag("peer_name_input")
                     )
 
-                    Spacer(Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -194,9 +186,9 @@ fun NewChatDialog(
                     ) {
                         if (peers.isNotEmpty()) {
                             TextButton(onClick = { showCustomInput = false }) {
-                                Text("Back to Contacts")
+                                Text("Back", color = ClestraTextSoft)
                             }
-                            Spacer(Modifier.width(8.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
                         }
                         Button(
                             onClick = {
@@ -206,18 +198,22 @@ fun NewChatDialog(
                                 }
                             },
                             enabled = customPeerId.isNotBlank(),
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = ClestraCopper,
+                                contentColor = Color.White
+                            ),
                             modifier = Modifier.testTag("confirm_chat_with_id_button")
                         ) {
-                            Text("Start Chat")
+                            Text("Start Chat", fontWeight = FontWeight.Bold)
                         }
                     }
                 }
 
-                Spacer(Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(4.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                     TextButton(onClick = onDismiss) {
-                        Text("Cancel")
+                        Text("Cancel", color = ClestraTextSoft)
                     }
                 }
             }

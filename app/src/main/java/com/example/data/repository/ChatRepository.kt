@@ -82,15 +82,20 @@ class ChatRepository(
      */
     suspend fun setupAccount(
         name: String,
-        avatarIcon: String,
-        avatarColor: Long,
-        password: String
+        avatarIcon: String = "🍑",
+        avatarColor: Long = 0xFFC4763A,
+        password: String,
+        username: String = ""
     ): UserAccountEntity {
-        val uniqueId = ClestraIdGenerator.generateUniqueClestraId(password, name)
+        val cleanName = name.trim()
+        val cleanUsername = username.trim().ifBlank { cleanName.lowercase().replace(" ", "_") }
+        val uniqueId = ClestraIdGenerator.generateUniqueClestraId(password, cleanUsername)
         val passwordHash = ClestraIdGenerator.hashPassword(password)
         val account = UserAccountEntity(
             id = uniqueId,
-            displayName = name,
+            displayName = cleanName,
+            username = cleanUsername,
+            bio = "Private. Secure. Yours.",
             avatarIcon = avatarIcon,
             avatarColor = avatarColor,
             passwordHash = passwordHash,
@@ -100,6 +105,14 @@ class ChatRepository(
         return account
     }
 
+    suspend fun updateProfilePhoto(photoUri: String?) {
+        accountDao.updatePhotoUri(photoUri)
+    }
+
+    suspend fun updateProfileBio(bio: String) {
+        accountDao.updateBio(bio)
+    }
+
     suspend fun getCurrentAccount(): UserAccountEntity? = accountDao.getAccount()
 
     /**
@@ -107,13 +120,18 @@ class ChatRepository(
      * - If peer is ONLINE: delivers directly via P2P (instant, 0 server hop)
      * - If peer is OFFLINE: routes via Serverless Relay, compresses payload, stores in MongoDB
      */
-    suspend fun sendMessage(recipientPeerId: String, content: String): MessageEntity {
+    suspend fun sendMessage(
+        recipientPeerId: String,
+        content: String,
+        mediaUri: String? = null
+    ): MessageEntity {
         val myId = getCurrentAccount()?.id ?: "CLS-ANONYMOUS"
         val peer = peerDao.getPeer(recipientPeerId)
         val isOnline = peer?.isOnline ?: false
         val messageId = UUID.randomUUID().toString()
         val now = System.currentTimeMillis()
-        val compressed = CompressionUtils.compress(content)
+        val effectiveContent = content.ifBlank { if (mediaUri != null) "Photo attachment" else "" }
+        val compressed = CompressionUtils.compress(effectiveContent)
 
         val route = if (isOnline) "P2P_DIRECT" else "SERVERLESS_RELAY"
         val initialStatus = if (isOnline) "DELIVERED" else "SENT"
@@ -123,12 +141,13 @@ class ChatRepository(
             conversationId = recipientPeerId,
             senderId = myId,
             recipientId = recipientPeerId,
-            content = content,
+            content = effectiveContent,
             compressedContent = compressed,
             timestamp = now,
             deliveryRoute = route,
             status = initialStatus,
-            isOutgoing = true
+            isOutgoing = true,
+            mediaUri = mediaUri
         )
 
         // Save locally in Room
@@ -136,14 +155,14 @@ class ChatRepository(
 
         // Update conversation preview
         val peerName = peer?.displayName ?: "Clestra Peer"
-        val peerAvatarColor = peer?.avatarColor ?: 0xFFFF7043
+        val peerAvatarColor = peer?.avatarColor ?: 0xFFC4763A
         val peerAvatarIcon = peer?.avatarIcon ?: "🍑"
         val updatedConvo = ConversationEntity(
             peerId = recipientPeerId,
             peerName = peerName,
             peerAvatarColor = peerAvatarColor,
             peerAvatarIcon = peerAvatarIcon,
-            lastMessage = content,
+            lastMessage = if (mediaUri != null && content.isBlank()) "📷 Photo" else effectiveContent,
             lastTimestamp = now,
             unreadCount = 0,
             isPeerOnline = isOnline,
@@ -156,7 +175,7 @@ class ChatRepository(
             // Direct P2P simulation: instantaneous delivery
             scope.launch {
                 delay(1200)
-                simulatePeerP2PReply(recipientPeerId, content)
+                simulatePeerP2PReply(recipientPeerId, effectiveContent)
             }
         } else {
             // Serverless Relay Route: Store in MongoDB
