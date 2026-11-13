@@ -328,7 +328,7 @@ class ChatRepository(
             }
 
             val replyText = if (openRouterApiKey.isBlank() || openRouterApiKey == "MY_OPENROUTER_API_KEY") {
-                "Hi $userName! I'm Clestra, your official built-in assistant. Add your OPENROUTER_API_KEY in the AI Studio Secrets panel so I can answer everything in real time."
+                "Hi $userName! I'm Clestra, your official built-in assistant. My live AI service isn't active in this build yet — please configure the assistant secret in your build environment and try again."
             } else {
                 try {
                     val response = OpenRouterClient.service.chatCompletion(

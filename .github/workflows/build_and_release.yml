@@ -17,18 +17,51 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
+          java-version: '21'
           distribution: 'temurin'
           cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Restore Debug Keystore
+        run: |
+          if [ -f debug.keystore.base64 ]; then
+            base64 -d debug.keystore.base64 > debug.keystore
+          else
+            keytool -genkeypair -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          fi
+
+      - name: Configure Build Secrets (.env)
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+        run: |
+          cp .env.example .env
+          if [ -n "$OPENROUTER_API_KEY" ]; then
+            grep -v "^OPENROUTER_API_KEY=" .env > .env.tmp || true
+            mv .env.tmp .env
+            printf 'OPENROUTER_API_KEY=%s\n' "$OPENROUTER_API_KEY" >> .env
+          fi
+          if [ -n "$MONGODB_URI" ]; then
+            grep -v "^MONGODB_URI=" .env > .env.tmp || true
+            mv .env.tmp .env
+            printf 'MONGODB_URI=%s\n' "$MONGODB_URI" >> .env
+          fi
 
       - name: Make Gradlew Executable
         run: chmod +x gradlew
 
       - name: Build APK with Gradle
-        run: ./gradlew assembleDebug --stacktrace
+        env:
+          JAVA_TOOL_OPTIONS: "-Djava.awt.headless=true"
+        run: ./gradlew assembleDebug --no-daemon --no-configuration-cache --stacktrace
+
+      - name: Verify APK Exists
+        run: ls -lh app/build/outputs/apk/debug/*.apk
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
@@ -45,10 +78,10 @@ jobs:
             ### Clestra Chat APK
             Automated build for commit `${{ github.sha }}`.
 
-            - **Decentralized P2P Messaging** (Direct node-to-node delivery when online)
-            - **Serverless Offline Relay** (MongoDB Atlas free-tier storage with instant auto-cleanup)
-            - **Artistic Peach UI** (Material 3 with custom peach palettes & illustrations)
-            - **Unique Immutable Clestra ID** generated from account credentials
+            - **End-to-End Encrypted Messaging** (AES-256-GCM across Direct P2P & MongoDB Relay)
+            - **Official Clestra AI Assistant** built into the app
+            - **Direct ID Chatting** (`CLS-XXXX-XXXX-XXXX`) with Mute & Block privacy controls
+            - **Cream, Copper & Charcoal Material 3 UI**
           draft: false
           prerelease: false
           files: app/build/outputs/apk/debug/*.apk
