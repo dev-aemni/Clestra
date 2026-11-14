@@ -99,9 +99,9 @@ fun ContactsScreen(
                 .padding(top = 14.dp)
         ) {
         NeumorphicCard(
-            cornerRadius = 24.dp,
-            elevation = 6.dp,
-            containerColor = Color.White,
+            cornerRadius = 28.dp,
+            elevation = 5.dp,
+            containerColor = ClestraNeuSurface,
             contentPadding = PaddingValues(18.dp),
             modifier = Modifier
                 .fillMaxWidth()
@@ -248,10 +248,10 @@ private fun ContactControlItem(
     }
 
     NeumorphicCard(
-        cornerRadius = 20.dp,
+        cornerRadius = 24.dp,
         elevation = 5.dp,
-        containerColor = if (peer.isOfficial) ClestraWarmBeige else Color.White,
-        accentBorderColor = if (peer.isOfficial) Color.White else null,
+        containerColor = if (peer.isOfficial) Color(0xFFE7EDF2) else ClestraNeuSurface,
+        accentBorderColor = if (peer.isOfficial) ClestraCopper.copy(alpha = 0.25f) else null,
         contentPadding = PaddingValues(14.dp),
         onClick = onChat,
         modifier = Modifier.fillMaxWidth()
@@ -267,9 +267,8 @@ private fun ContactControlItem(
                     .size(46.dp)
                     .neumorphicRaised(
                         cornerRadius = 14.dp,
-                        elevation = 3.dp,
-                        containerColor = avatarBg,
-                        accentBorderColor = Color.White
+                        elevation = 4.dp,
+                        containerColor = avatarBg
                     ),
                 contentAlignment = Alignment.Center
             ) {

@@ -369,6 +369,7 @@ class ChatRepository(
             when (effectiveType) {
                 "GIF" -> "GIF"
                 "STICKER" -> "Sticker"
+                "VOICE" -> "Voice message"
                 "IMAGE" -> "Photo attachment"
                 "FILE" -> attachmentName ?: "File attachment"
                 else -> ""
@@ -379,6 +380,7 @@ class ChatRepository(
         val transportPlaintext = when (effectiveType) {
             "TEXT" -> effectiveContent
             "FILE" -> "FILE::$effectiveContent::$embeddedUri::${attachmentMimeType.orEmpty()}::$attachmentSizeBytes"
+            "VOICE" -> "VOICE::$effectiveContent::$embeddedUri::${attachmentMimeType.orEmpty()}::$attachmentSizeBytes"
             else -> "$effectiveType::$effectiveContent::$embeddedUri"
         }
 
@@ -414,6 +416,7 @@ class ChatRepository(
         val previewText = when (effectiveType) {
             "GIF" -> "GIF"
             "STICKER" -> "Sticker"
+            "VOICE" -> effectiveContent.ifBlank { "Voice message" }
             "IMAGE" -> if (content.isNotBlank() && content != "Photo attachment") "Photo: $content" else "Photo"
             "FILE" -> "File: ${attachmentName ?: effectiveContent}"
             else -> effectiveContent
@@ -446,6 +449,7 @@ class ChatRepository(
                 val botPromptText = when (effectiveType) {
                     "GIF" -> "[User sent a GIF: $effectiveContent]"
                     "STICKER" -> "[User sent a sticker: $effectiveContent]"
+                    "VOICE" -> "[User sent a voice note: $effectiveContent]"
                     "IMAGE" -> "[User sent an embedded photo]"
                     "FILE" -> "[User shared file: ${attachmentName ?: effectiveContent}]"
                     else -> effectiveContent
@@ -962,7 +966,7 @@ Tap **Full** on any code box to inspect all lines with line numbers!
                         isOutgoing = false,
                         mediaUri = decoded.uri,
                         messageType = decoded.type,
-                        attachmentName = if (decoded.type == "FILE") decoded.content else null,
+                        attachmentName = if (decoded.type == "FILE" || decoded.type == "VOICE") decoded.content else null,
                         attachmentMimeType = decoded.mimeType,
                         attachmentSizeBytes = decoded.sizeBytes
                     )
@@ -1010,7 +1014,7 @@ Tap **Full** on any code box to inspect all lines with line numbers!
                             isOutgoing = false,
                             mediaUri = decoded.uri,
                             messageType = decoded.type,
-                            attachmentName = if (decoded.type == "FILE") decoded.content else null,
+                            attachmentName = if (decoded.type == "FILE" || decoded.type == "VOICE") decoded.content else null,
                             attachmentMimeType = decoded.mimeType,
                             attachmentSizeBytes = decoded.sizeBytes
                         )
@@ -1212,6 +1216,7 @@ Tap **Full** on any code box to inspect all lines with line numbers!
         val replyText = when {
             decoded.type == "GIF" -> "Nice GIF!"
             decoded.type == "STICKER" -> "Awesome sticker!"
+            decoded.type == "VOICE" -> "Got your ${decoded.content.lowercase()}!"
             decoded.type == "IMAGE" -> "Got your embedded photo!"
             decoded.type == "FILE" -> "Received your file: ${decoded.content}"
             decoded.content.contains("hello", ignoreCase = true) || decoded.content.contains("hi", ignoreCase = true) ->
@@ -1288,6 +1293,23 @@ Tap **Full** on any code box to inspect all lines with line numbers!
                 sizeBytes = parts.getOrNull(3)?.toLongOrNull() ?: 0L
             )
         }
+        if (decrypted.startsWith("VOICE::")) {
+            val parts = decrypted.removePrefix("VOICE::").split("::", limit = 4)
+            val label = parts.getOrNull(0)?.ifBlank { "Voice (0:05)" } ?: "Voice (0:05)"
+            val rawUri = parts.getOrNull(1)?.takeIf { it.isNotBlank() }
+            val materializedUri = FileAttachmentUtils.materializeTransportData(
+                context,
+                rawUri,
+                "voice_${System.currentTimeMillis()}.m4a"
+            ) ?: rawUri
+            return DecodedIncomingPayload(
+                type = "VOICE",
+                content = label,
+                uri = materializedUri,
+                mimeType = parts.getOrNull(2)?.takeIf { it.isNotBlank() },
+                sizeBytes = parts.getOrNull(3)?.toLongOrNull() ?: 0L
+            )
+        }
         val prefixes = listOf("GIF::", "STICKER::", "IMAGE::")
         for (prefix in prefixes) {
             if (decrypted.startsWith(prefix)) {
@@ -1330,7 +1352,8 @@ Tap **Full** on any code box to inspect all lines with line numbers!
                 context = context,
                 peerId = peerId,
                 senderName = senderName,
-                messageText = messageText
+                messageText = messageText,
+                isOfficial = peer?.isOfficial == true || peerId == OFFICIAL_BOT_ID
             )
         }
     }

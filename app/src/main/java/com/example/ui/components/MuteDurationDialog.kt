@@ -63,8 +63,8 @@ fun MuteDurationDialog(
                             .size(38.dp)
                             .neumorphicRaised(
                                 cornerRadius = 12.dp,
-                                elevation = 3.dp,
-                                containerColor = Color.White
+                                elevation = 4.dp,
+                                containerColor = ClestraNeuSurface
                             ),
                         contentAlignment = Alignment.Center
                     ) {

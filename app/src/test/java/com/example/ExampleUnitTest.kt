@@ -228,4 +228,60 @@ class ExampleUnitTest {
         assertTrue(prompt.contains("send_message"))
         assertFalse(prompt.lowercase().contains("openrouter"))
     }
+
+    @Test
+    fun testAudioMetadataEncodingParsingAndDurationFormat() {
+        val sampleWaveform = listOf(10, 45, 92, 66, 30, 80, 100, 40)
+        val encoded = com.example.ui.components.AudioMetaCodec.encodeMime(
+            baseMime = "audio/mp4",
+            durationMs = 14_200L,
+            waveform = sampleWaveform
+        )
+        assertTrue(encoded.startsWith("audio/mp4;dur=14200;wf="))
+
+        val parsed = com.example.ui.components.AudioMetaCodec.parseMeta(encoded)
+        assertEquals("audio/mp4", parsed.baseMime)
+        assertEquals(14_200L, parsed.durationMs)
+        assertEquals(24, parsed.waveform.size)
+        assertTrue(parsed.waveform.all { it in 12..100 })
+
+        assertEquals("0:00", com.example.ui.components.AudioMetaCodec.formatDuration(0L))
+        assertEquals("0:14", com.example.ui.components.AudioMetaCodec.formatDuration(14_200L))
+        assertEquals("1:05", com.example.ui.components.AudioMetaCodec.formatDuration(65_000L))
+    }
+
+    @Test
+    fun testWavAndCompressedAudioWaveformExtraction() {
+        // Synthetic RIFF/WAVE header + 16-bit PCM signal bytes
+        val wavBytes = ByteArray(1024)
+        "RIFF".toByteArray().copyInto(wavBytes, 0)
+        "WAVE".toByteArray().copyInto(wavBytes, 8)
+        for (i in 44 until wavBytes.size step 2) {
+            val amp = ((i * 37) % 12000).toShort()
+            wavBytes[i] = (amp.toInt() and 0xFF).toByte()
+            wavBytes[i + 1] = ((amp.toInt() ushr 8) and 0xFF).toByte()
+        }
+        val wavBars = com.example.ui.components.AudioMetaCodec.extractEnergyWaveformFromBytes(wavBytes, bars = 24)
+        assertEquals(24, wavBars.size)
+        assertTrue(wavBars.all { it in 16..100 })
+
+        // Compressed audio byte fallback (e.g., MP3 frames)
+        val mp3Bytes = ByteArray(1024) { idx -> ((idx * 19 + idx * idx) and 0xFF).toByte() }
+        val mp3Bars = com.example.ui.components.AudioMetaCodec.extractEnergyWaveformFromBytes(mp3Bytes, bars = 24)
+        assertEquals(24, mp3Bars.size)
+        assertTrue(mp3Bars.all { it in 16..100 })
+    }
+
+    @Test
+    fun testVoicePayloadAndSoftUiCssPaletteTokens() {
+        val payload = "VOICE::Voice (0:09)::gzb64:H4sIAAAAAAAA/8tIzcnJBwCGphA2BQAAAA==::audio/mp4;dur=9000;wf=20,50,80::4096"
+        val sealed = CryptoUtils.encryptPayload(payload, "dev", "CLS-1111-2222-3333")
+        assertTrue(sealed.startsWith("ENC2:"))
+        assertEquals(payload, CryptoUtils.decryptPayload(sealed, "dev", "CLS-1111-2222-3333"))
+
+        assertEquals(androidx.compose.ui.graphics.Color(0xFFECF0F3), com.example.ui.theme.ClestraCream)
+        assertEquals(70, kotlin.math.round(com.example.ui.theme.ClestraTextSoft.red * 255f).toInt())
+        assertEquals(70, kotlin.math.round(com.example.ui.theme.ClestraTextSoft.green * 255f).toInt())
+        assertEquals(70, kotlin.math.round(com.example.ui.theme.ClestraTextSoft.blue * 255f).toInt())
+    }
 }

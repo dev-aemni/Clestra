@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.example.ui.ChatViewModel
+import com.example.ui.components.neumorphicPressed
 import com.example.ui.components.neumorphicRaised
 import com.example.ui.theme.ClestraCharcoal
 import com.example.ui.theme.ClestraCopper
@@ -99,8 +100,8 @@ fun HomeScreen(
                         .fillMaxWidth()
                         .neumorphicRaised(
                             cornerRadius = 28.dp,
-                            elevation = 8.dp,
-                            containerColor = Color.White
+                            elevation = 6.dp,
+                            containerColor = ClestraNeuSurface
                         )
                         .padding(horizontal = 8.dp, vertical = 7.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -144,9 +145,9 @@ fun HomeScreen(
                         .size(58.dp)
                         .neumorphicRaised(
                             cornerRadius = 29.dp,
-                            elevation = 7.dp,
+                            elevation = 6.dp,
                             containerColor = ClestraCopper,
-                            accentBorderColor = Color.White.copy(alpha = 0.75f)
+                            accentBorderColor = Color.White.copy(alpha = 0.55f)
                         )
                         .clip(CircleShape)
                         .clickable { onOpenNewChat() }
@@ -197,11 +198,9 @@ private fun NeumorphicNavTab(
     modifier: Modifier = Modifier
 ) {
     val pillModifier = if (selected) {
-        Modifier.neumorphicRaised(
+        Modifier.neumorphicPressed(
             cornerRadius = 22.dp,
-            elevation = 3.dp,
-            containerColor = com.example.ui.theme.ClestraBubbleSent.copy(alpha = 0.72f),
-            accentBorderColor = Color.White
+            containerColor = ClestraNeuSurface
         )
     } else {
         Modifier

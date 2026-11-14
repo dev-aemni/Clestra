@@ -510,9 +510,12 @@ fun FileAttachmentCard(
     }
 
     var loadedTextContent by remember(message.mediaUri) { mutableStateOf<String?>(null) }
+    var audioInfo by remember(message.mediaUri) { mutableStateOf<Pair<Long, List<Int>>?>(null) }
     LaunchedEffect(message.mediaUri, kind) {
         if (kind == ClestraFileKind.CODE_OR_TEXT && !message.mediaUri.isNullOrBlank()) {
             loadedTextContent = FileAttachmentUtils.readTextFileContent(context, message.mediaUri)
+        } else if (kind == ClestraFileKind.AUDIO && !message.mediaUri.isNullOrBlank()) {
+            audioInfo = AudioMetaCodec.inspectAudioFile(context, message.mediaUri, fileName, bars = 24)
         }
     }
 
@@ -525,7 +528,7 @@ fun FileAttachmentCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .neumorphicPressed(cornerRadius = 14.dp, containerColor = ClestraNeuWell)
+                .neumorphicPressed(cornerRadius = 16.dp, containerColor = ClestraNeuWell)
                 .padding(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -534,8 +537,8 @@ fun FileAttachmentCard(
                     .size(44.dp)
                     .neumorphicRaised(
                         cornerRadius = 12.dp,
-                        elevation = 3.dp,
-                        containerColor = Color.White
+                        elevation = 4.dp,
+                        containerColor = ClestraNeuSurface
                     ),
                 contentAlignment = Alignment.Center
             ) {
@@ -577,8 +580,8 @@ fun FileAttachmentCard(
                         .size(36.dp)
                         .neumorphicRaised(
                             cornerRadius = 11.dp,
-                            elevation = 3.dp,
-                            containerColor = Color.White
+                            elevation = 4.dp,
+                            containerColor = ClestraNeuSurface
                         )
                 ) {
                     Icon(
@@ -588,6 +591,29 @@ fun FileAttachmentCard(
                         modifier = Modifier.size(18.dp)
                     )
                 }
+            }
+        }
+
+        // Compact inline audio preview player for MP3, WAV, M4A, AAC, OGG, FLAC
+        if (kind == ClestraFileKind.AUDIO && !message.mediaUri.isNullOrBlank()) {
+            val info = audioInfo
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .neumorphicRaised(
+                        cornerRadius = 16.dp,
+                        elevation = 3.5.dp,
+                        containerColor = ClestraNeuSurface
+                    )
+                    .padding(horizontal = 10.dp, vertical = 6.dp)
+            ) {
+                ClestraAudioPlayerBar(
+                    uriString = message.mediaUri,
+                    waveform = info?.second ?: emptyList(),
+                    fallbackDurationMs = info?.first ?: 0L,
+                    accentColor = accentColor,
+                    surfaceColor = ClestraNeuSurface
+                )
             }
         }
 

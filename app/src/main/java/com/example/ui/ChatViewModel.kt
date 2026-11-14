@@ -2,6 +2,7 @@ package com.example.ui
 
 import android.app.Application
 import android.net.Uri
+import android.util.Base64
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.model.ConversationEntity
@@ -9,12 +10,15 @@ import com.example.data.model.CustomStickerEntity
 import com.example.data.model.MessageEntity
 import com.example.data.model.PeerEntity
 import com.example.data.model.UserAccountEntity
+import com.example.data.network.CompressionUtils
 import com.example.data.network.GifItem
 import com.example.data.network.GifProvider
 import com.example.data.network.GifProviderManager
 import com.example.data.repository.ChatRepository
+import com.example.ui.components.AudioMetaCodec
 import com.example.ui.components.CustomTagCodec
 import com.example.ui.components.FileAttachmentUtils
+import com.example.ui.components.RecordedVoiceNote
 import com.example.ui.components.StickerStorageUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -284,11 +288,52 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun sendVoiceMessage(
+        recorded: RecordedVoiceNote,
+        replyTo: MessageEntity? = null,
+        replySenderName: String? = null
+    ) {
+        val peerId = _activePeerId.value ?: return
+        viewModelScope.launch {
+            val (localUri, transportData, fileSize) = withContext(Dispatchers.IO) {
+                val uri = Uri.fromFile(recorded.file).toString()
+                val rawBytes = recorded.file.readBytes()
+                val compressed = CompressionUtils.compressBytes(rawBytes)
+                val transport = if (compressed.size <= 420 * 1024) {
+                    "gzb64:" + Base64.encodeToString(compressed, Base64.NO_WRAP)
+                } else {
+                    uri
+                }
+                Triple(uri, transport, rawBytes.size.toLong())
+            }
+            val metaMime = AudioMetaCodec.encodeMime(
+                baseMime = "audio/mp4",
+                durationMs = recorded.durationMs,
+                waveform = recorded.waveform
+            )
+            val label = "Voice (${AudioMetaCodec.formatDuration(recorded.durationMs)})"
+            repository.sendMessage(
+                recipientPeerId = peerId,
+                content = label,
+                mediaUri = localUri,
+                messageType = "VOICE",
+                attachmentName = recorded.file.name,
+                attachmentMimeType = metaMime,
+                attachmentSizeBytes = fileSize,
+                transportMediaUri = transportData,
+                replyToMessageId = replyTo?.id,
+                replyToPreview = replyTo?.let { buildReplyPreview(it) },
+                replyToSenderName = replySenderName
+            )
+        }
+    }
+
     private fun buildReplyPreview(msg: MessageEntity): String {
         return when (msg.messageType) {
             "IMAGE" -> "Photo"
             "GIF" -> "GIF"
             "STICKER" -> "Sticker"
+            "VOICE" -> msg.content.ifBlank { "Voice message" }
             "FILE" -> msg.attachmentName ?: msg.content
             else -> msg.content.take(90)
         }

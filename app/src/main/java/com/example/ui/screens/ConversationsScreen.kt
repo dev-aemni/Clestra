@@ -120,9 +120,9 @@ fun ConversationsScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .neumorphicRaised(
-                            cornerRadius = 24.dp,
+                            cornerRadius = 28.dp,
                             elevation = 5.dp,
-                            containerColor = Color.White
+                            containerColor = ClestraNeuSurface
                         )
                         .clip(RoundedCornerShape(24.dp))
                 ) {
@@ -225,9 +225,9 @@ fun ConversationsScreen(
                                         )
                                     } else {
                                         Modifier.neumorphicRaised(
-                                            cornerRadius = 14.dp,
+                                            cornerRadius = 21.dp,
                                             elevation = 4.dp,
-                                            containerColor = Color.White
+                                            containerColor = ClestraNeuSurface
                                         )
                                     }
                                 )
@@ -269,8 +269,8 @@ fun ConversationsScreen(
                             .fillMaxWidth()
                             .padding(top = 12.dp)
                             .neumorphicPressed(
-                                cornerRadius = 16.dp,
-                                containerColor = Color.White
+                                cornerRadius = 26.dp,
+                                containerColor = ClestraNeuWell
                             )
                             .testTag("search_field")
                     )
@@ -290,14 +290,14 @@ fun ConversationsScreen(
                                     if (isSelected) {
                                         Modifier.neumorphicRaised(
                                             cornerRadius = 50.dp,
-                                            elevation = 3.dp,
-                                            containerColor = Color.White,
+                                            elevation = 4.dp,
+                                            containerColor = ClestraNeuSurface,
                                             accentBorderColor = ClestraCopper.copy(alpha = 0.45f)
                                         )
                                     } else {
                                         Modifier.neumorphicPressed(
                                             cornerRadius = 50.dp,
-                                            containerColor = ClestraNeuWell.copy(alpha = 0.78f)
+                                            containerColor = ClestraNeuWell
                                         )
                                     }
                                 )
@@ -325,9 +325,9 @@ fun ConversationsScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     NeumorphicCard(
-                        cornerRadius = 26.dp,
-                        elevation = 7.dp,
-                        containerColor = Color.White,
+                        cornerRadius = 28.dp,
+                        elevation = 6.dp,
+                        containerColor = ClestraNeuSurface,
                         contentPadding = PaddingValues(28.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
@@ -459,10 +459,10 @@ fun ConversationItem(
             modifier = Modifier
                 .fillMaxWidth()
                 .neumorphicRaised(
-                    cornerRadius = 22.dp,
+                    cornerRadius = 24.dp,
                     elevation = 5.dp,
-                    containerColor = if (conversation.isOfficial) ClestraWarmBeige else Color.White,
-                    accentBorderColor = if (conversation.isOfficial) Color.White else null
+                    containerColor = if (conversation.isOfficial) Color(0xFFE7EDF2) else ClestraNeuSurface,
+                    accentBorderColor = if (conversation.isOfficial) ClestraCopper.copy(alpha = 0.25f) else null
                 )
                 .clip(RoundedCornerShape(22.dp))
                 .combinedClickable(
@@ -499,9 +499,8 @@ fun ConversationItem(
                             .size(50.dp)
                             .neumorphicRaised(
                                 cornerRadius = 16.dp,
-                                elevation = 3.dp,
-                                containerColor = avatarBg,
-                                accentBorderColor = Color.White
+                                elevation = 4.dp,
+                                containerColor = avatarBg
                             ),
                         contentAlignment = Alignment.Center
                     ) {
@@ -536,7 +535,7 @@ fun ConversationItem(
                                     else -> ClestraCopper
                                 }
                             )
-                            .border(2.dp, Color.White, CircleShape)
+                            .border(2.dp, ClestraNeuSurface, CircleShape)
                     )
                 }
 

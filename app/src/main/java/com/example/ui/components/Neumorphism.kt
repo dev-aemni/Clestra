@@ -1,5 +1,7 @@
 package com.example.ui.components
 
+import android.graphics.BlurMaskFilter
+import android.graphics.Paint as NativePaint
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.clickable
@@ -26,8 +28,12 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.asAndroidPath
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.ui.theme.ClestraNeuDark
@@ -35,36 +41,63 @@ import com.example.ui.theme.ClestraNeuLight
 import com.example.ui.theme.ClestraNeuSurface
 import com.example.ui.theme.ClestraNeuWell
 
+private val CssDropShadowColor = Color(0x29000000) // exact rgba(0, 0, 0, .16) from style.css
+
 /**
- * Tactile clean Soft UI (Neumorphism) modifier:
- * Draws warm diffused bottom-right elevation shadows, smooth rounded surface,
- * and a refined hairline contour without harsh white edge artifacts.
+ * Exact CSS Soft UI raised/extruded shadow modifier matching style.css:
+ *   background-color: #ecf0f3;
+ *   box-shadow: -5px -5px 12px #ffffff, 5px 5px 12px rgba(0, 0, 0, .16);
  */
 fun Modifier.neumorphicRaised(
-    cornerRadius: Dp = 18.dp,
+    cornerRadius: Dp = 20.dp,
     elevation: Dp = 5.dp,
     containerColor: Color = ClestraNeuSurface,
     lightShadowColor: Color = ClestraNeuLight,
     darkShadowColor: Color = ClestraNeuDark,
     accentBorderColor: Color? = null
 ): Modifier = this.drawBehind {
-    val radiusPx = cornerRadius.toPx()
+    if (size.width <= 0f || size.height <= 0f) return@drawBehind
+    val radiusPx = cornerRadius.toPx().coerceAtMost(minOf(size.width, size.height) / 2f)
     val corner = CornerRadius(radiusPx, radiusPx)
-    val e = elevation.toPx()
+    val offsetPx = elevation.toPx()
+    val spreadScale = (elevation.value / 5f).coerceIn(0.45f, 1.6f)
+    val blurPx = (12.dp.toPx() * spreadScale).coerceAtLeast(1f)
 
-    // Soft ambient warm drop shadow underneath & subtly toward bottom-right
-    val darkLayers = listOf(1.15f to 0.08f, 0.75f to 0.14f, 0.38f to 0.18f)
-    darkLayers.forEach { (mult, alpha) ->
-        val d = e * mult
-        drawRoundRect(
-            color = darkShadowColor.copy(alpha = alpha),
-            topLeft = Offset(d * 0.45f, d),
-            size = size,
-            cornerRadius = CornerRadius(radiusPx + d * 0.12f, radiusPx + d * 0.12f)
+    drawIntoCanvas { canvas ->
+        val native = canvas.nativeCanvas
+
+        // Top-left CSS white highlight (-5px -5px 12px #ffffff)
+        val lightPaint = NativePaint(NativePaint.ANTI_ALIAS_FLAG).apply {
+            color = lightShadowColor.copy(alpha = 0.94f).toArgb()
+            maskFilter = BlurMaskFilter(blurPx, BlurMaskFilter.Blur.NORMAL)
+        }
+        native.drawRoundRect(
+            -offsetPx,
+            -offsetPx,
+            size.width - offsetPx,
+            size.height - offsetPx,
+            radiusPx,
+            radiusPx,
+            lightPaint
+        )
+
+        // Bottom-right CSS ambient dark shadow (5px 5px 12px rgba(0, 0, 0, .16))
+        val darkPaint = NativePaint(NativePaint.ANTI_ALIAS_FLAG).apply {
+            color = CssDropShadowColor.toArgb()
+            maskFilter = BlurMaskFilter(blurPx, BlurMaskFilter.Blur.NORMAL)
+        }
+        native.drawRoundRect(
+            offsetPx,
+            offsetPx,
+            size.width + offsetPx,
+            size.height + offsetPx,
+            radiusPx,
+            radiusPx,
+            darkPaint
         )
     }
 
-    // Main extruded surface
+    // Crisp #ECF0F3 surface covering interior
     drawRoundRect(
         color = containerColor,
         topLeft = Offset.Zero,
@@ -72,50 +105,55 @@ fun Modifier.neumorphicRaised(
         cornerRadius = corner
     )
 
-    // Delicate contour hairline (no harsh thick white top-left bar)
-    val hairlineAlpha = if (accentBorderColor != null) 0.42f else 0.22f
-    val borderBrush = Brush.linearGradient(
-        colors = listOf(
-            accentBorderColor?.copy(alpha = hairlineAlpha) ?: lightShadowColor.copy(alpha = 0.14f),
-            darkShadowColor.copy(alpha = 0.12f),
-            accentBorderColor?.copy(alpha = 0.28f) ?: darkShadowColor.copy(alpha = 0.24f)
-        ),
-        start = Offset.Zero,
-        end = Offset(size.width, size.height)
-    )
-    drawRoundRect(
-        brush = borderBrush,
-        topLeft = Offset(0.4.dp.toPx(), 0.4.dp.toPx()),
-        size = Size(
-            (size.width - 0.8.dp.toPx()).coerceAtLeast(0f),
-            (size.height - 0.8.dp.toPx()).coerceAtLeast(0f)
-        ),
-        cornerRadius = corner,
-        style = Stroke(width = if (accentBorderColor != null) 1.1.dp.toPx() else 0.75.dp.toPx())
-    )
+    if (accentBorderColor != null) {
+        drawRoundRect(
+            color = accentBorderColor.copy(alpha = 0.32f),
+            topLeft = Offset(0.5.dp.toPx(), 0.5.dp.toPx()),
+            size = Size(
+                (size.width - 1.dp.toPx()).coerceAtLeast(0f),
+                (size.height - 1.dp.toPx()).coerceAtLeast(0f)
+            ),
+            cornerRadius = corner,
+            style = Stroke(width = 1.dp.toPx())
+        )
+    } else {
+        // Whisper-thin contour for sharp curved geometry on multi-card lists
+        drawRoundRect(
+            color = darkShadowColor.copy(alpha = 0.14f),
+            topLeft = Offset(0.35.dp.toPx(), 0.35.dp.toPx()),
+            size = Size(
+                (size.width - 0.7.dp.toPx()).coerceAtLeast(0f),
+                (size.height - 0.7.dp.toPx()).coerceAtLeast(0f)
+            ),
+            cornerRadius = corner,
+            style = Stroke(width = 0.6.dp.toPx())
+        )
+    }
 }
 
 /**
- * Tactile Soft UI bubble modifier with signature asymmetric corner radii,
- * soft tonal gradient fill, and gentle diffused depth shadow.
+ * Asymmetric Soft UI message bubble matching style.css Gaussian shadows
+ * without harsh blown-out white top overlays so curved depth reads clearly.
  */
 fun Modifier.neumorphicBubble(
     topStart: Dp = 20.dp,
     topEnd: Dp = 20.dp,
     bottomStart: Dp = 20.dp,
     bottomEnd: Dp = 20.dp,
-    elevation: Dp = 3.dp,
+    elevation: Dp = 4.dp,
     topColor: Color,
     bottomColor: Color,
     lightShadowColor: Color = ClestraNeuLight,
     darkShadowColor: Color = ClestraNeuDark,
     accentBorderColor: Color? = null
 ): Modifier = this.drawBehind {
+    if (size.width <= 0f || size.height <= 0f) return@drawBehind
     val tl = CornerRadius(topStart.toPx())
     val tr = CornerRadius(topEnd.toPx())
     val bl = CornerRadius(bottomStart.toPx())
     val br = CornerRadius(bottomEnd.toPx())
-    val e = elevation.toPx()
+    val offsetPx = elevation.toPx()
+    val blurPx = (10.dp.toPx() * (elevation.value / 4f).coerceIn(0.6f, 1.5f)).coerceAtLeast(1f)
 
     fun buildBubblePath(dx: Float, dy: Float, inset: Float = 0f): Path {
         val rr = RoundRect(
@@ -133,14 +171,21 @@ fun Modifier.neumorphicBubble(
         return Path().apply { addRoundRect(rr) }
     }
 
-    drawPath(
-        path = buildBubblePath(e * 0.45f, e * 0.95f),
-        color = darkShadowColor.copy(alpha = 0.14f)
-    )
-    drawPath(
-        path = buildBubblePath(e * 0.25f, e * 0.50f),
-        color = darkShadowColor.copy(alpha = 0.18f)
-    )
+    drawIntoCanvas { canvas ->
+        val native = canvas.nativeCanvas
+
+        val lightPaint = NativePaint(NativePaint.ANTI_ALIAS_FLAG).apply {
+            color = lightShadowColor.copy(alpha = 0.90f).toArgb()
+            maskFilter = BlurMaskFilter(blurPx, BlurMaskFilter.Blur.NORMAL)
+        }
+        native.drawPath(buildBubblePath(-offsetPx, -offsetPx).asAndroidPath(), lightPaint)
+
+        val darkPaint = NativePaint(NativePaint.ANTI_ALIAS_FLAG).apply {
+            color = CssDropShadowColor.toArgb()
+            maskFilter = BlurMaskFilter(blurPx, BlurMaskFilter.Blur.NORMAL)
+        }
+        native.drawPath(buildBubblePath(offsetPx, offsetPx).asAndroidPath(), darkPaint)
+    }
 
     val mainPath = buildBubblePath(0f, 0f)
     drawPath(
@@ -152,36 +197,30 @@ fun Modifier.neumorphicBubble(
         )
     )
 
-    val bevelBrush = Brush.linearGradient(
-        colors = listOf(
-            accentBorderColor?.copy(alpha = 0.38f) ?: lightShadowColor.copy(alpha = 0.12f),
-            darkShadowColor.copy(alpha = 0.10f),
-            accentBorderColor?.copy(alpha = 0.20f) ?: darkShadowColor.copy(alpha = 0.22f)
-        ),
-        start = Offset.Zero,
-        end = Offset(size.width, size.height)
-    )
+    val rimColor = accentBorderColor?.copy(alpha = 0.28f) ?: darkShadowColor.copy(alpha = 0.16f)
     drawPath(
-        path = buildBubblePath(0f, 0f, inset = 0.5.dp.toPx()),
-        brush = bevelBrush,
-        style = Stroke(width = if (accentBorderColor != null) 1.05.dp.toPx() else 0.75.dp.toPx())
+        path = buildBubblePath(0f, 0f, inset = 0.4.dp.toPx()),
+        color = rimColor,
+        style = Stroke(width = 0.7.dp.toPx())
     )
 }
 
 /**
- * Tactile recessed/concave Neumorphism (Soft UI) modifier:
- * Ideal for text inputs, search wells, recessed badges, and depressed states.
+ * Exact CSS Soft UI inset/recessed modifier matching style.css input:
+ *   background-color: #ecf0f3;
+ *   box-shadow: inset -5px -5px 12px #ffffff, inset 5px 5px 12px rgba(0, 0, 0, .16);
  */
 fun Modifier.neumorphicPressed(
-    cornerRadius: Dp = 16.dp,
+    cornerRadius: Dp = 20.dp,
     containerColor: Color = ClestraNeuWell,
     lightShadowColor: Color = ClestraNeuLight,
     darkShadowColor: Color = ClestraNeuDark
 ): Modifier = this.drawBehind {
-    val radiusPx = cornerRadius.toPx()
+    if (size.width <= 0f || size.height <= 0f) return@drawBehind
+    val radiusPx = cornerRadius.toPx().coerceAtMost(minOf(size.width, size.height) / 2f)
     val corner = CornerRadius(radiusPx, radiusPx)
 
-    // Base recessed well
+    // Base recessed well (#ecf0f3)
     drawRoundRect(
         color = containerColor,
         topLeft = Offset.Zero,
@@ -189,45 +228,60 @@ fun Modifier.neumorphicPressed(
         cornerRadius = corner
     )
 
-    // Gentle inward top-left shadow wash
-    drawRoundRect(
-        brush = Brush.linearGradient(
-            colors = listOf(
-                darkShadowColor.copy(alpha = 0.24f),
-                Color.Transparent,
-                lightShadowColor.copy(alpha = 0.10f)
-            ),
-            start = Offset.Zero,
-            end = Offset(size.width * 0.35f, size.height * 0.5f)
-        ),
-        topLeft = Offset.Zero,
-        size = size,
-        cornerRadius = corner
-    )
+    // Clipped Gaussian inner shadows matching CSS `inset 5px 5px 12px rgba(0,0,0,.16)` & `inset -5px -5px 12px #ffffff`
+    drawIntoCanvas { canvas ->
+        val clipPath = Path().apply {
+            addRoundRect(RoundRect(0f, 0f, size.width, size.height, radiusPx, radiusPx))
+        }
+        canvas.save()
+        canvas.clipPath(clipPath)
 
-    // Clean recessed rim without bright white border glare
+        val offsetPx = 5.dp.toPx()
+        val blurPx = 11.dp.toPx()
+        val strokeW = blurPx * 1.35f
+        val halfStroke = strokeW / 2f
+
+        fun drawInsetRing(dx: Float, dy: Float, argb: Int) {
+            val paint = NativePaint(NativePaint.ANTI_ALIAS_FLAG).apply {
+                style = NativePaint.Style.STROKE
+                strokeWidth = strokeW
+                color = argb
+                maskFilter = BlurMaskFilter(blurPx, BlurMaskFilter.Blur.NORMAL)
+            }
+            canvas.nativeCanvas.drawRoundRect(
+                dx - halfStroke,
+                dy - halfStroke,
+                size.width + dx + halfStroke,
+                size.height + dy + halfStroke,
+                radiusPx + halfStroke * 0.45f,
+                radiusPx + halfStroke * 0.45f,
+                paint
+            )
+        }
+
+        // Top-left recessed dark shadow
+        drawInsetRing(offsetPx, offsetPx, CssDropShadowColor.toArgb())
+        // Bottom-right recessed white glow
+        drawInsetRing(-offsetPx, -offsetPx, lightShadowColor.copy(alpha = 0.92f).toArgb())
+
+        canvas.restore()
+    }
+
+    // Subtle inner bevel contour
     drawRoundRect(
-        brush = Brush.linearGradient(
-            colors = listOf(
-                darkShadowColor.copy(alpha = 0.34f),
-                darkShadowColor.copy(alpha = 0.14f),
-                lightShadowColor.copy(alpha = 0.20f)
-            ),
-            start = Offset.Zero,
-            end = Offset(size.width, size.height)
-        ),
-        topLeft = Offset(0.45.dp.toPx(), 0.45.dp.toPx()),
+        color = darkShadowColor.copy(alpha = 0.16f),
+        topLeft = Offset(0.4.dp.toPx(), 0.4.dp.toPx()),
         size = Size(
-            (size.width - 0.9.dp.toPx()).coerceAtLeast(0f),
-            (size.height - 0.9.dp.toPx()).coerceAtLeast(0f)
+            (size.width - 0.8.dp.toPx()).coerceAtLeast(0f),
+            (size.height - 0.8.dp.toPx()).coerceAtLeast(0f)
         ),
         cornerRadius = corner,
-        style = Stroke(width = 0.9.dp.toPx())
+        style = Stroke(width = 0.7.dp.toPx())
     )
 }
 
 /**
- * Interactive tactile scale-on-press modifier for Neumorphic buttons and cards.
+ * Interactive tactile scale-on-press modifier for Soft UI buttons and cards.
  */
 fun Modifier.neumorphicPressEffect(
     interactionSource: MutableInteractionSource
@@ -247,7 +301,7 @@ fun Modifier.neumorphicPressEffect(
 @Composable
 fun NeumorphicCard(
     modifier: Modifier = Modifier,
-    cornerRadius: Dp = 18.dp,
+    cornerRadius: Dp = 24.dp,
     elevation: Dp = 5.dp,
     containerColor: Color = ClestraNeuSurface,
     accentBorderColor: Color? = null,
@@ -286,7 +340,7 @@ fun NeumorphicButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    cornerRadius: Dp = 14.dp,
+    cornerRadius: Dp = 18.dp,
     containerColor: Color = ClestraNeuSurface,
     contentPadding: PaddingValues = PaddingValues(horizontal = 18.dp, vertical = 14.dp),
     content: @Composable BoxScope.() -> Unit

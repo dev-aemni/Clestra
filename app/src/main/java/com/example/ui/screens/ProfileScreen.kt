@@ -217,9 +217,9 @@ fun ProfileScreen(
             Spacer(modifier = Modifier.height(22.dp))
 
             NeumorphicCard(
-                cornerRadius = 20.dp,
-                elevation = 6.dp,
-                containerColor = Color.White,
+                cornerRadius = 26.dp,
+                elevation = 5.dp,
+                containerColor = ClestraNeuSurface,
                 contentPadding = PaddingValues(16.dp),
                 onClick = {
                     clipboard.setText(AnnotatedString(myId))
@@ -269,8 +269,8 @@ fun ProfileScreen(
                                 .size(32.dp)
                                 .neumorphicRaised(
                                     cornerRadius = 10.dp,
-                                    elevation = 3.dp,
-                                    containerColor = Color.White
+                                    elevation = 4.dp,
+                                    containerColor = ClestraNeuSurface
                                 ),
                             contentAlignment = Alignment.Center
                         ) {
@@ -289,9 +289,9 @@ fun ProfileScreen(
 
             // Secret Tag Redeem Section
             NeumorphicCard(
-                cornerRadius = 20.dp,
-                elevation = 6.dp,
-                containerColor = Color.White,
+                cornerRadius = 26.dp,
+                elevation = 5.dp,
+                containerColor = ClestraNeuSurface,
                 contentPadding = PaddingValues(16.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -456,9 +456,9 @@ fun ProfileScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             NeumorphicCard(
-                cornerRadius = 20.dp,
-                elevation = 6.dp,
-                containerColor = Color.White,
+                cornerRadius = 26.dp,
+                elevation = 5.dp,
+                containerColor = ClestraNeuSurface,
                 contentPadding = PaddingValues(16.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {

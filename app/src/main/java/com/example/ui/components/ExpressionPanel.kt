@@ -538,10 +538,14 @@ private fun StickersArea(
                     Box(
                         modifier = Modifier
                             .height(84.dp)
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(Color.White)
+                            .neumorphicRaised(
+                                cornerRadius = 16.dp,
+                                elevation = 3.dp,
+                                containerColor = ClestraNeuSurface
+                            )
+                            .clip(RoundedCornerShape(16.dp))
                             .clickable { onSendSticker(sticker) }
-                            .padding(4.dp),
+                            .padding(6.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         StickerVisual(
@@ -826,7 +830,7 @@ private fun CreateCustomStickerDialog(
                     value = label,
                     onValueChange = { label = it },
                     hint = "Sticker name / search tag (e.g. Coffee)",
-                    containerColor = Color.White,
+                    containerColor = ClestraNeuWell,
                     modifier = Modifier.testTag("custom_sticker_label_input")
                 )
 

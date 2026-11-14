@@ -1,11 +1,14 @@
 package com.example.ui.screens
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -62,6 +65,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.EmojiEmotions
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Keyboard
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.NotificationsOff
@@ -79,9 +83,12 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -114,6 +121,11 @@ import com.example.R
 import com.example.data.model.MessageEntity
 import com.example.data.repository.ChatRepository
 import com.example.ui.ChatViewModel
+import com.example.ui.components.AudioMetaCodec
+import com.example.ui.components.ClestraAudioPlaybackController
+import com.example.ui.components.ClestraAudioPlayerBar
+import com.example.ui.components.ClestraLiveRecordingStrip
+import com.example.ui.components.ClestraVoiceRecorder
 import com.example.ui.components.ClestraWallpaperBox
 import com.example.ui.components.CoilGifSupport
 import com.example.ui.components.ExpressionPanel
@@ -121,6 +133,7 @@ import com.example.ui.components.FileAttachmentCard
 import com.example.ui.components.FileAttachmentUtils
 import com.example.ui.components.FullScreenCodeViewerModal
 import com.example.ui.components.FullScreenDocumentData
+import com.example.ui.components.LocalClestraAudioController
 import com.example.ui.components.MarkdownMessageContent
 import com.example.ui.components.MuteDurationDialog
 import com.example.ui.components.NeumorphicButton
@@ -141,6 +154,7 @@ import com.example.ui.theme.ClestraNeuSurface
 import com.example.ui.theme.ClestraNeuWell
 import com.example.ui.theme.ClestraOnline
 import com.example.ui.theme.ClestraTextSoft
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -191,6 +205,50 @@ fun ChatDetailScreen(
     var chatSearchQuery by remember { mutableStateOf("") }
     var replyingToMessage by remember { mutableStateOf<MessageEntity?>(null) }
     var editingMessage by remember { mutableStateOf<MessageEntity?>(null) }
+    var isRecordingVoice by remember { mutableStateOf(false) }
+    var recordingElapsedMs by remember { mutableLongStateOf(0L) }
+    var liveVoiceAmplitudes by remember { mutableStateOf<List<Int>>(emptyList()) }
+
+    val voiceRecorder = remember(context) { ClestraVoiceRecorder(context) }
+    val audioPlaybackController = remember(context) { ClestraAudioPlaybackController(context) }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            voiceRecorder.cancel()
+            audioPlaybackController.release()
+        }
+    }
+
+    LaunchedEffect(isRecordingVoice) {
+        if (isRecordingVoice) {
+            liveVoiceAmplitudes = emptyList()
+            while (isRecordingVoice) {
+                val amp = voiceRecorder.pollAmplitudeNormalized()
+                recordingElapsedMs = voiceRecorder.currentElapsedMs()
+                liveVoiceAmplitudes = (liveVoiceAmplitudes + amp).takeLast(28)
+                delay(65L)
+            }
+        }
+    }
+
+    val micPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            showAttachTray = false
+            showExpressionPanel = false
+            focusManager.clearFocus()
+            keyboardController?.hide()
+            if (voiceRecorder.start()) {
+                recordingElapsedMs = 0L
+                isRecordingVoice = true
+            } else {
+                Toast.makeText(context, "Unable to start microphone", Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            Toast.makeText(context, "Microphone permission needed for voice messages", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     val listState = rememberLazyListState()
 
@@ -271,6 +329,7 @@ fun ChatDetailScreen(
         }
     }
 
+    CompositionLocalProvider(LocalClestraAudioController provides audioPlaybackController) {
     ClestraWallpaperBox(
         intensePattern = true,
         modifier = modifier
@@ -282,7 +341,7 @@ fun ChatDetailScreen(
                     WindowInsets.ime.union(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom))
                 )
         ) {
-            // Soft UI Pure-White Chat Header with curved accent waves
+            // Exact CSS #ECF0F3 Soft UI Chat Header
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -293,11 +352,11 @@ fun ChatDetailScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .neumorphicRaised(
-                            cornerRadius = 24.dp,
+                            cornerRadius = 28.dp,
                             elevation = 5.dp,
-                            containerColor = Color.White
+                            containerColor = ClestraNeuSurface
                         )
-                        .clip(RoundedCornerShape(24.dp))
+                        .clip(RoundedCornerShape(28.dp))
                 ) {
                     Canvas(modifier = Modifier.matchParentSize()) {
                         val w = size.width
@@ -329,8 +388,8 @@ fun ChatDetailScreen(
                                 .size(40.dp)
                                 .neumorphicRaised(
                                     cornerRadius = 13.dp,
-                                    elevation = 3.dp,
-                                    containerColor = Color.White
+                                    elevation = 4.dp,
+                                    containerColor = ClestraNeuSurface
                                 )
                                 .testTag("chat_back_button")
                         ) {
@@ -351,9 +410,8 @@ fun ChatDetailScreen(
                                 .size(38.dp)
                                 .neumorphicRaised(
                                     cornerRadius = 12.dp,
-                                    elevation = 3.dp,
-                                    containerColor = headerAvatarBg,
-                                    accentBorderColor = Color.White
+                                    elevation = 4.dp,
+                                    containerColor = headerAvatarBg
                                 )
                                 .padding(2.dp),
                             contentAlignment = Alignment.Center
@@ -457,8 +515,8 @@ fun ChatDetailScreen(
                                     } else {
                                         Modifier.neumorphicRaised(
                                             cornerRadius = 12.dp,
-                                            elevation = 3.dp,
-                                            containerColor = Color.White
+                                            elevation = 4.dp,
+                                            containerColor = ClestraNeuSurface
                                         )
                                     }
                                 )
@@ -481,8 +539,8 @@ fun ChatDetailScreen(
                                     .size(38.dp)
                                     .neumorphicRaised(
                                         cornerRadius = 12.dp,
-                                        elevation = 3.dp,
-                                        containerColor = Color.White
+                                        elevation = 4.dp,
+                                        containerColor = ClestraNeuSurface
                                     )
                                     .testTag("chat_more_button")
                             ) {
@@ -610,8 +668,8 @@ fun ChatDetailScreen(
                             .fillMaxWidth()
                             .padding(top = 8.dp)
                             .neumorphicPressed(
-                                cornerRadius = 14.dp,
-                                containerColor = Color.White
+                                cornerRadius = 20.dp,
+                                containerColor = ClestraNeuWell
                             )
                     )
                 }
@@ -680,10 +738,9 @@ fun ChatDetailScreen(
                                     topEnd = 18.dp,
                                     bottomStart = 18.dp,
                                     bottomEnd = 18.dp,
-                                    elevation = 3.dp,
-                                    topColor = Color.White,
-                                    bottomColor = Color(0xFFF6E7D8),
-                                    accentBorderColor = Color.White
+                                    elevation = 4.dp,
+                                    topColor = ClestraNeuSurface,
+                                    bottomColor = Color(0xFFE4EAEF)
                                 )
                             ) {
                                 Text(
@@ -705,9 +762,9 @@ fun ChatDetailScreen(
                         .fillMaxWidth()
                         .padding(horizontal = 12.dp, vertical = 10.dp)
                         .neumorphicRaised(
-                            cornerRadius = 22.dp,
+                            cornerRadius = 28.dp,
                             elevation = 5.dp,
-                            containerColor = Color.White
+                            containerColor = ClestraNeuSurface
                         )
                         .padding(horizontal = 16.dp, vertical = 12.dp)
                 ) {
@@ -724,7 +781,7 @@ fun ChatDetailScreen(
                         )
                         NeumorphicButton(
                             onClick = { viewModel.toggleBlockPeer(peerId) },
-                            cornerRadius = 12.dp,
+                            cornerRadius = 14.dp,
                             containerColor = ClestraCopper,
                             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)
                         ) {
@@ -738,11 +795,11 @@ fun ChatDetailScreen(
                         .fillMaxWidth()
                         .padding(horizontal = 10.dp, vertical = 8.dp)
                         .neumorphicRaised(
-                            cornerRadius = 26.dp,
-                            elevation = 6.dp,
-                            containerColor = Color.White
+                            cornerRadius = 28.dp,
+                            elevation = 5.dp,
+                            containerColor = ClestraNeuSurface
                         )
-                        .clip(RoundedCornerShape(26.dp))
+                        .clip(RoundedCornerShape(28.dp))
                 ) {
                     // Reply / Edit active strip
                     val activeReply = replyingToMessage
@@ -850,168 +907,226 @@ fun ChatDetailScreen(
                         }
                     }
 
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 10.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        IconButton(
-                            onClick = {
-                                showAttachTray = !showAttachTray
-                                if (showAttachTray) {
-                                    showExpressionPanel = false
-                                }
+                    if (isRecordingVoice) {
+                        ClestraLiveRecordingStrip(
+                            elapsedMs = recordingElapsedMs,
+                            liveAmplitudes = liveVoiceAmplitudes,
+                            onCancel = {
+                                voiceRecorder.cancel()
+                                isRecordingVoice = false
+                                recordingElapsedMs = 0L
                             },
-                            modifier = Modifier
-                                .minimumInteractiveComponentSize()
-                                .size(40.dp)
-                                .then(
-                                    if (showAttachTray) {
-                                        Modifier.neumorphicPressed(
-                                            cornerRadius = 14.dp,
-                                            containerColor = ClestraNeuWell
-                                        )
-                                    } else {
-                                        Modifier.neumorphicRaised(
-                                            cornerRadius = 14.dp,
-                                            elevation = 3.dp,
-                                            containerColor = Color.White
-                                        )
-                                    }
-                                )
-                                .testTag("attach_button")
-                        ) {
-                            Icon(
-                                imageVector = if (showAttachTray) Icons.Default.Close else Icons.Default.Add,
-                                contentDescription = "Attach photo or file",
-                                tint = if (showAttachTray) ClestraCopper else ClestraCharcoal,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.width(6.dp))
-
-                        IconButton(
-                            onClick = {
-                                showAttachTray = false
-                                if (!showExpressionPanel) {
-                                    focusManager.clearFocus()
-                                    keyboardController?.hide()
-                                    showExpressionPanel = true
+                            onSend = {
+                                val note = voiceRecorder.stopAndSave()
+                                isRecordingVoice = false
+                                recordingElapsedMs = 0L
+                                if (note != null) {
+                                    val reply = replyingToMessage
+                                    viewModel.sendVoiceMessage(
+                                        recorded = note,
+                                        replyTo = reply,
+                                        replySenderName = if (reply?.isOutgoing == true) "You" else peerName
+                                    )
+                                    replyingToMessage = null
                                 } else {
-                                    showExpressionPanel = false
+                                    Toast.makeText(context, "Voice note too short", Toast.LENGTH_SHORT).show()
                                 }
-                            },
-                            modifier = Modifier
-                                .minimumInteractiveComponentSize()
-                                .size(40.dp)
-                                .then(
-                                    if (showExpressionPanel) {
-                                        Modifier.neumorphicPressed(
-                                            cornerRadius = 14.dp,
-                                            containerColor = ClestraNeuWell
-                                        )
-                                    } else {
-                                        Modifier.neumorphicRaised(
-                                            cornerRadius = 14.dp,
-                                            elevation = 3.dp,
-                                            containerColor = Color.White
-                                        )
-                                    }
-                                )
-                                .testTag("expression_panel_toggle")
-                        ) {
-                            Icon(
-                                imageVector = if (showExpressionPanel) Icons.Default.Keyboard else Icons.Default.EmojiEmotions,
-                                contentDescription = if (showExpressionPanel) "Hide expressions" else "Emojis, Stickers & GIFs",
-                                tint = if (showExpressionPanel) ClestraCopper else ClestraCharcoal,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.width(8.dp))
-
-                        TextField(
-                            value = inputText,
-                            onValueChange = { inputText = it },
-                            placeholder = {
-                                Text(
-                                    text = when {
-                                        editingMessage != null -> "Update message..."
-                                        isOfficial -> "Ask Clestra anything..."
-                                        else -> "Message..."
-                                    },
-                                    color = ClestraTextSoft,
-                                    fontSize = 14.sp
-                                )
-                            },
-                            maxLines = 4,
-                            shape = RoundedCornerShape(18.dp),
-                            colors = TextFieldDefaults.colors(
-                                focusedContainerColor = Color.Transparent,
-                                unfocusedContainerColor = Color.Transparent,
-                                focusedIndicatorColor = Color.Transparent,
-                                unfocusedIndicatorColor = Color.Transparent,
-                                focusedTextColor = ClestraCharcoal,
-                                unfocusedTextColor = ClestraCharcoal,
-                                cursorColor = ClestraCopper
-                            ),
-                            modifier = Modifier
-                                .weight(1f)
-                                .heightIn(min = 44.dp)
-                                .neumorphicPressed(
-                                    cornerRadius = 18.dp,
-                                    containerColor = ClestraNeuWell
-                                )
-                                .onFocusChanged { state ->
-                                    if (state.isFocused) {
-                                        showExpressionPanel = false
-                                        showAttachTray = false
-                                    }
-                                }
-                                .testTag("chat_input_field")
+                            }
                         )
-
-                        Spacer(modifier = Modifier.width(8.dp))
-
-                        Box(
+                    } else {
+                        Row(
                             modifier = Modifier
-                                .minimumInteractiveComponentSize()
-                                .size(42.dp)
-                                .neumorphicRaised(
-                                    cornerRadius = 15.dp,
-                                    elevation = 4.dp,
-                                    containerColor = if (inputText.isNotBlank()) ClestraCopper else ClestraBubbleSent
-                                )
-                                .clip(RoundedCornerShape(15.dp))
-                                .clickable {
-                                    if (inputText.isNotBlank()) {
-                                        val editTarget = editingMessage
-                                        if (editTarget != null) {
-                                            viewModel.editMessage(editTarget, inputText)
-                                            editingMessage = null
-                                        } else {
-                                            val reply = replyingToMessage
-                                            viewModel.sendMessage(
-                                                content = inputText,
-                                                replyTo = reply,
-                                                replySenderName = if (reply?.isOutgoing == true) "You" else peerName
-                                            )
-                                            replyingToMessage = null
-                                        }
-                                        inputText = ""
-                                    }
-                                }
-                                .testTag("send_button"),
-                            contentAlignment = Alignment.Center
+                                .fillMaxWidth()
+                                .padding(horizontal = 10.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(
-                                imageVector = if (editingMessage != null) Icons.Default.Check else Icons.AutoMirrored.Filled.Send,
-                                contentDescription = if (editingMessage != null) "Save Edit" else "Send Message",
-                                tint = if (inputText.isNotBlank()) Color.White else ClestraCopperDark,
-                                modifier = Modifier.size(20.dp)
+                            IconButton(
+                                onClick = {
+                                    showAttachTray = !showAttachTray
+                                    if (showAttachTray) {
+                                        showExpressionPanel = false
+                                    }
+                                },
+                                modifier = Modifier
+                                    .minimumInteractiveComponentSize()
+                                    .size(40.dp)
+                                    .then(
+                                        if (showAttachTray) {
+                                            Modifier.neumorphicPressed(
+                                                cornerRadius = 20.dp,
+                                                containerColor = ClestraNeuWell
+                                            )
+                                        } else {
+                                            Modifier.neumorphicRaised(
+                                                cornerRadius = 20.dp,
+                                                elevation = 4.dp,
+                                                containerColor = ClestraNeuSurface
+                                            )
+                                        }
+                                    )
+                                    .testTag("attach_button")
+                            ) {
+                                Icon(
+                                    imageVector = if (showAttachTray) Icons.Default.Close else Icons.Default.Add,
+                                    contentDescription = "Attach photo or file",
+                                    tint = if (showAttachTray) ClestraCopper else ClestraCharcoal,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.width(6.dp))
+
+                            IconButton(
+                                onClick = {
+                                    showAttachTray = false
+                                    if (!showExpressionPanel) {
+                                        focusManager.clearFocus()
+                                        keyboardController?.hide()
+                                        showExpressionPanel = true
+                                    } else {
+                                        showExpressionPanel = false
+                                    }
+                                },
+                                modifier = Modifier
+                                    .minimumInteractiveComponentSize()
+                                    .size(40.dp)
+                                    .then(
+                                        if (showExpressionPanel) {
+                                            Modifier.neumorphicPressed(
+                                                cornerRadius = 20.dp,
+                                                containerColor = ClestraNeuWell
+                                            )
+                                        } else {
+                                            Modifier.neumorphicRaised(
+                                                cornerRadius = 20.dp,
+                                                elevation = 4.dp,
+                                                containerColor = ClestraNeuSurface
+                                            )
+                                        }
+                                    )
+                                    .testTag("expression_panel_toggle")
+                            ) {
+                                Icon(
+                                    imageVector = if (showExpressionPanel) Icons.Default.Keyboard else Icons.Default.EmojiEmotions,
+                                    contentDescription = if (showExpressionPanel) "Hide expressions" else "Emojis, Stickers & GIFs",
+                                    tint = if (showExpressionPanel) ClestraCopper else ClestraCharcoal,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.width(8.dp))
+
+                            TextField(
+                                value = inputText,
+                                onValueChange = { inputText = it },
+                                placeholder = {
+                                    Text(
+                                        text = when {
+                                            editingMessage != null -> "Update message..."
+                                            isOfficial -> "Ask Clestra anything..."
+                                            else -> "Message..."
+                                        },
+                                        color = ClestraTextSoft,
+                                        fontSize = 14.sp
+                                    )
+                                },
+                                maxLines = 4,
+                                shape = RoundedCornerShape(22.dp),
+                                colors = TextFieldDefaults.colors(
+                                    focusedContainerColor = Color.Transparent,
+                                    unfocusedContainerColor = Color.Transparent,
+                                    focusedIndicatorColor = Color.Transparent,
+                                    unfocusedIndicatorColor = Color.Transparent,
+                                    focusedTextColor = ClestraCharcoal,
+                                    unfocusedTextColor = ClestraCharcoal,
+                                    cursorColor = ClestraCopper
+                                ),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .heightIn(min = 44.dp)
+                                    .neumorphicPressed(
+                                        cornerRadius = 22.dp,
+                                        containerColor = ClestraNeuWell
+                                    )
+                                    .onFocusChanged { state ->
+                                        if (state.isFocused) {
+                                            showExpressionPanel = false
+                                            showAttachTray = false
+                                        }
+                                    }
+                                    .testTag("chat_input_field")
                             )
+
+                            Spacer(modifier = Modifier.width(8.dp))
+
+                            val showSendButton = inputText.isNotBlank() || editingMessage != null
+                            Box(
+                                modifier = Modifier
+                                    .minimumInteractiveComponentSize()
+                                    .size(42.dp)
+                                    .neumorphicRaised(
+                                        cornerRadius = 21.dp,
+                                        elevation = 4.dp,
+                                        containerColor = if (showSendButton) ClestraCopper else ClestraNeuSurface
+                                    )
+                                    .clip(CircleShape)
+                                    .clickable {
+                                        if (showSendButton) {
+                                            if (inputText.isNotBlank()) {
+                                                val editTarget = editingMessage
+                                                if (editTarget != null) {
+                                                    viewModel.editMessage(editTarget, inputText)
+                                                    editingMessage = null
+                                                } else {
+                                                    val reply = replyingToMessage
+                                                    viewModel.sendMessage(
+                                                        content = inputText,
+                                                        replyTo = reply,
+                                                        replySenderName = if (reply?.isOutgoing == true) "You" else peerName
+                                                    )
+                                                    replyingToMessage = null
+                                                }
+                                                inputText = ""
+                                            }
+                                        } else {
+                                            val hasMic = ContextCompat.checkSelfPermission(
+                                                context,
+                                                Manifest.permission.RECORD_AUDIO
+                                            ) == PackageManager.PERMISSION_GRANTED
+                                            if (hasMic) {
+                                                showAttachTray = false
+                                                showExpressionPanel = false
+                                                focusManager.clearFocus()
+                                                keyboardController?.hide()
+                                                if (voiceRecorder.start()) {
+                                                    recordingElapsedMs = 0L
+                                                    isRecordingVoice = true
+                                                } else {
+                                                    Toast.makeText(context, "Unable to start microphone", Toast.LENGTH_SHORT).show()
+                                                }
+                                            } else {
+                                                micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                                            }
+                                        }
+                                    }
+                                    .testTag(if (showSendButton) "send_button" else "record_voice_button"),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = when {
+                                        editingMessage != null -> Icons.Default.Check
+                                        showSendButton -> Icons.AutoMirrored.Filled.Send
+                                        else -> Icons.Default.Mic
+                                    },
+                                    contentDescription = when {
+                                        editingMessage != null -> "Save Edit"
+                                        showSendButton -> "Send Message"
+                                        else -> "Record Voice Message"
+                                    },
+                                    tint = if (showSendButton) Color.White else ClestraCopperDark,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
                         }
                     }
 
@@ -1161,6 +1276,7 @@ fun ChatDetailScreen(
             )
         }
     }
+    }
 
     if (showMuteDialog) {
         MuteDurationDialog(
@@ -1237,22 +1353,24 @@ fun MessageBubble(
     val isBotIncoming = !isSent && isOfficialBotChat
     val isSticker = message.messageType == "STICKER"
     val isGif = message.messageType == "GIF"
+    val isVoice = message.messageType == "VOICE"
     val isImage = message.messageType == "IMAGE"
     val isFile = message.messageType == "FILE"
 
-    val topStartCorner = if (isSent) 20.dp else 5.dp
-    val topEndCorner = if (isSent) 5.dp else 20.dp
+    val topStartCorner = if (isSent) 22.dp else 6.dp
+    val topEndCorner = if (isSent) 6.dp else 22.dp
     val bubbleShape = RoundedCornerShape(
         topStart = topStartCorner,
         topEnd = topEndCorner,
-        bottomStart = 20.dp,
-        bottomEnd = 20.dp
+        bottomStart = 22.dp,
+        bottomEnd = 22.dp
     )
 
+    // Balanced #ECF0F3 / warm Soft UI tonal surfaces — no blown-out top white sheen
     val (topColor, bottomColor) = when {
-        isSent -> Color(0xFFFCEADF) to Color(0xFFF3CFAF)
-        isBotIncoming -> Color(0xFFFFFFFF) to Color(0xFFF9EDE0)
-        else -> Color(0xFFFFFFFF) to Color(0xFFFAF5EE)
+        isSent -> Color(0xFFF3E6D8) to Color(0xFFEBDBC9)
+        isBotIncoming -> ClestraNeuSurface to Color(0xFFE5EAEF)
+        else -> ClestraNeuSurface to Color(0xFFE6ECF1)
     }
 
     Column(
@@ -1286,16 +1404,16 @@ fun MessageBubble(
             } else {
                 Box(
                     modifier = Modifier
-                        .widthIn(min = 96.dp, max = 312.dp)
+                        .widthIn(min = if (isVoice) 198.dp else 96.dp, max = if (isVoice) 252.dp else 312.dp)
                         .neumorphicBubble(
                             topStart = topStartCorner,
                             topEnd = topEndCorner,
-                            bottomStart = 20.dp,
-                            bottomEnd = 20.dp,
-                            elevation = 3.5.dp,
+                            bottomStart = 22.dp,
+                            bottomEnd = 22.dp,
+                            elevation = 4.dp,
                             topColor = topColor,
                             bottomColor = bottomColor,
-                            accentBorderColor = if (isBotIncoming) Color.White else null
+                            accentBorderColor = if (isBotIncoming) ClestraCopper.copy(alpha = 0.28f) else null
                         )
                         .clip(bubbleShape)
                         .combinedClickable(
@@ -1304,29 +1422,18 @@ fun MessageBubble(
                         )
                         .testTag("message_bubble_${message.id}")
                 ) {
-                    // Decorative subtle curved wave sheen inside every bubble (never flat solid color)
-                    Canvas(modifier = Modifier.matchParentSize()) {
-                        val w = size.width
-                        val h = size.height
-                        val highlightArc = Path().apply {
-                            moveTo(0f, h * 0.25f)
-                            quadraticTo(w * 0.45f, 0f, w, h * 0.35f)
-                            lineTo(w, 0f)
-                            lineTo(0f, 0f)
-                            close()
-                        }
-                        drawPath(
-                            path = highlightArc,
-                            brush = Brush.verticalGradient(
-                                colors = listOf(Color.White.copy(alpha = 0.48f), Color.Transparent)
-                            )
-                        )
-                    }
-
                     Column(
                         modifier = Modifier.padding(
-                            horizontal = if (isGif) 6.dp else 13.dp,
-                            vertical = if (isGif) 6.dp else 10.dp
+                            horizontal = when {
+                                isGif -> 6.dp
+                                isVoice -> 10.dp
+                                else -> 13.dp
+                            },
+                            vertical = when {
+                                isGif -> 6.dp
+                                isVoice -> 8.dp
+                                else -> 10.dp
+                            }
                         )
                     ) {
                         if (isBotIncoming) {
@@ -1383,6 +1490,18 @@ fun MessageBubble(
                         }
 
                         when {
+                            isVoice -> {
+                                val audioMeta = remember(message.attachmentMimeType) {
+                                    AudioMetaCodec.parseMeta(message.attachmentMimeType)
+                                }
+                                ClestraAudioPlayerBar(
+                                    uriString = message.mediaUri,
+                                    waveform = audioMeta.waveform,
+                                    fallbackDurationMs = audioMeta.durationMs,
+                                    surfaceColor = topColor
+                                )
+                            }
+
                             isFile -> {
                                 FileAttachmentCard(
                                     message = message,
@@ -1576,8 +1695,8 @@ fun MessageBubble(
                     .padding(top = 4.dp)
                     .neumorphicRaised(
                         cornerRadius = 14.dp,
-                        elevation = 2.dp,
-                        containerColor = Color.White
+                        elevation = 3.dp,
+                        containerColor = ClestraNeuSurface
                     )
                     .clip(CircleShape)
                     .clickable { onReact("") }

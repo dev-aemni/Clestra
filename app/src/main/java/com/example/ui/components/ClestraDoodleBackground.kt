@@ -46,8 +46,8 @@ fun ClestraWallpaperBox(
                 Brush.verticalGradient(
                     colors = listOf(
                         ClestraCream,
-                        Color(0xFFF6EFE6),
-                        Color(0xFFEEE4D8)
+                        Color(0xFFEAF0F4),
+                        Color(0xFFE6ECF1)
                     )
                 )
             )
@@ -55,7 +55,7 @@ fun ClestraWallpaperBox(
         Canvas(modifier = Modifier.fillMaxSize()) {
             val w = size.width
             val h = size.height
-            val baseAlpha = if (intensePattern) 0.085f else 0.055f
+            val baseAlpha = if (intensePattern) 0.065f else 0.042f
 
             // Flowing organic ribbon curves across the background
             drawCurvedRibbons(w, h, baseAlpha)
@@ -64,8 +64,8 @@ fun ClestraWallpaperBox(
             val tileSize = 112.dp.toPx()
             val cols = (w / tileSize).toInt() + 2
             val rows = (h / tileSize).toInt() + 2
-            val strokeColor = ClestraCopper.copy(alpha = if (intensePattern) 0.095f else 0.055f)
-            val altColor = ClestraNeuDark.copy(alpha = if (intensePattern) 0.24f else 0.14f)
+            val strokeColor = ClestraCopper.copy(alpha = if (intensePattern) 0.068f else 0.042f)
+            val altColor = ClestraNeuDark.copy(alpha = if (intensePattern) 0.22f else 0.14f)
 
             for (r in 0 until rows) {
                 for (c in 0 until cols) {
