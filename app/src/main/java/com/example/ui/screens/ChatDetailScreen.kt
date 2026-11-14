@@ -1590,7 +1590,7 @@ fun MessageBubble(
             }
         }
 
-        // Clean timestamp + sender tag + star + edited + WhatsApp tick indicators (NO E2EE text)
+        // Clean timestamp + sender tag + star + edited + delivery checkmark indicators (NO E2EE text)
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(top = 3.dp, start = 4.dp, end = 4.dp)

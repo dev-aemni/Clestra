@@ -159,10 +159,11 @@ jobs:
             - **Version:** `${{ steps.version.outputs.ver_name }}` (Build code: `${{ steps.version.outputs.ver_code }}`)
 
             #### Highlights
-            - **Neumorphism (Soft UI) Design** with warm alabaster-cream surfaces and tactile pure-white badges
+            - **Soft UI Tactile Interface** with warm cream surfaces, curved organic canvas, and customizable gradient profile badges
+            - **End-to-End Compression & Encryption** pairing GZIP (`BEST_COMPRESSION`) with AES-256-GCM across P2P and relay transfers
             - **Markdown & Syntax-Highlighted Code Viewer** with collapsed inline preview, Copy, and Full-Screen reader
             - **Rich File & Image Sharing** with custom file-type icons (APK, Code, PDF, Archives, Media) and direct image download
-            - **WhatsApp-Style Chat Controls** including Replies, Pinning, Starring, Editing, Search, Block, Delete & Timed Notification Mutes
+            - **Complete Messaging Controls** including Reply Previews, Chat Pinning, Starred Messages, Editing, Search, Blocking & Timed Notification Mutes
           files: app/build/outputs/apk/debug/Clestra-*.apk
           draft: false
           prerelease: false

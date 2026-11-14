@@ -30,7 +30,7 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 /**
- * WhatsApp-inspired subtle curved organic doodle wallpaper over the warm Cream Soft UI canvas.
+ * Subtle curved organic doodle wallpaper over the warm Cream Soft UI canvas.
  * Uses hardware-friendly Compose Canvas paths and gentle opacity so message bubbles always pop cleanly.
  */
 @Composable
@@ -60,7 +60,7 @@ fun ClestraWallpaperBox(
             // Flowing organic ribbon curves across the background
             drawCurvedRibbons(w, h, baseAlpha)
 
-            // Repeated WhatsApp-style tiled soft line-art doodles
+            // Repeated tiled soft line-art doodles
             val tileSize = 112.dp.toPx()
             val cols = (w / tileSize).toInt() + 2
             val rows = (h / tileSize).toInt() + 2

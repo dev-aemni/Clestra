@@ -96,7 +96,7 @@ fun Modifier.neumorphicRaised(
 }
 
 /**
- * Tactile Soft UI bubble modifier with WhatsApp-style asymmetric corner radii,
+ * Tactile Soft UI bubble modifier with signature asymmetric corner radii,
  * soft tonal gradient fill, and gentle diffused depth shadow.
  */
 fun Modifier.neumorphicBubble(
