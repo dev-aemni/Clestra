@@ -13,6 +13,7 @@ import com.example.data.network.GifItem
 import com.example.data.network.GifProvider
 import com.example.data.network.GifProviderManager
 import com.example.data.repository.ChatRepository
+import com.example.ui.components.FileAttachmentUtils
 import com.example.ui.components.StickerStorageUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -62,7 +63,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
-    // Filter tab (0: All, 1: Online P2P, 2: Offline Relay)
+    // Filter & Search
     val selectedFilterTab = MutableStateFlow(0)
     val searchQuery = MutableStateFlow("")
 
@@ -114,7 +115,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val _relayTestResult = MutableStateFlow<String?>(null)
     val relayTestResult: StateFlow<String?> = _relayTestResult.asStateFlow()
 
-    // Stickers & Multi-Provider GIF Search State
+    // Stickers & GIF Search State
     val stickers: StateFlow<List<CustomStickerEntity>> = repository.getAllStickers()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -173,6 +174,25 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    private val _redeemStatus = MutableStateFlow<Pair<Boolean, String>?>(null)
+    val redeemStatus: StateFlow<Pair<Boolean, String>?> = _redeemStatus.asStateFlow()
+
+    fun redeemTagCode(rawCode: String) {
+        viewModelScope.launch {
+            _redeemStatus.value = repository.redeemTagCode(rawCode)
+        }
+    }
+
+    fun selectActiveTag(tag: String?) {
+        viewModelScope.launch {
+            repository.selectActiveTag(tag)
+        }
+    }
+
+    fun clearRedeemStatus() {
+        _redeemStatus.value = null
+    }
+
     fun startDirectChatById(
         peerIdInput: String,
         displayNameInput: String = "",
@@ -200,12 +220,70 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         repository.setActiveConversationPeerId(null)
     }
 
-    fun sendMessage(content: String, mediaUri: String? = null, messageType: String = "TEXT") {
+    fun sendMessage(
+        content: String,
+        mediaUri: String? = null,
+        messageType: String = "TEXT",
+        replyTo: MessageEntity? = null,
+        replySenderName: String? = null
+    ) {
         val peerId = _activePeerId.value ?: return
         if (content.isBlank() && mediaUri == null) return
 
         viewModelScope.launch {
-            repository.sendMessage(peerId, content.trim(), mediaUri, messageType)
+            repository.sendMessage(
+                recipientPeerId = peerId,
+                content = content.trim(),
+                mediaUri = mediaUri,
+                messageType = messageType,
+                replyToMessageId = replyTo?.id,
+                replyToPreview = replyTo?.let { buildReplyPreview(it) },
+                replyToSenderName = replySenderName
+            )
+        }
+    }
+
+    fun sendAttachment(
+        sourceUri: Uri,
+        forceImage: Boolean,
+        caption: String = "",
+        replyTo: MessageEntity? = null,
+        replySenderName: String? = null
+    ) {
+        val peerId = _activePeerId.value ?: return
+        viewModelScope.launch {
+            val embedded = FileAttachmentUtils.importAndEmbedAttachment(
+                context = getApplication(),
+                sourceUri = sourceUri,
+                forceImage = forceImage
+            ) ?: return@launch
+
+            val type = if (embedded.isImage) "IMAGE" else "FILE"
+            val textContent = if (embedded.isImage) caption.trim() else embedded.displayName
+
+            repository.sendMessage(
+                recipientPeerId = peerId,
+                content = textContent,
+                mediaUri = embedded.localFileUri,
+                messageType = type,
+                attachmentName = embedded.displayName,
+                attachmentMimeType = embedded.mimeType,
+                attachmentSizeBytes = embedded.sizeBytes,
+                transportMediaUri = embedded.transportData,
+                replyToMessageId = replyTo?.id,
+                replyToPreview = replyTo?.let { buildReplyPreview(it) },
+                replyToSenderName = replySenderName
+            )
+        }
+    }
+
+    private fun buildReplyPreview(msg: MessageEntity): String {
+        return when (msg.messageType) {
+            "IMAGE" -> "Photo"
+            "GIF" -> "GIF"
+            "STICKER" -> "Sticker"
+            "FILE" -> msg.attachmentName ?: msg.content
+            else -> msg.content.take(90)
         }
     }
 
@@ -229,7 +307,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 query = _gifQuery.value
             )
             _gifItems.value = result.items
-            _gifNotice.value = result.notice
+            _gifNotice.value = null
             _isLoadingGifs.value = false
         }
     }
@@ -274,6 +352,24 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun mutePeer(peerId: String, durationMillis: Long?) {
+        viewModelScope.launch {
+            repository.mutePeer(peerId, durationMillis)
+        }
+    }
+
+    fun unmutePeer(peerId: String) {
+        viewModelScope.launch {
+            repository.unmutePeer(peerId)
+        }
+    }
+
+    fun togglePinConversation(peerId: String) {
+        viewModelScope.launch {
+            repository.togglePinConversation(peerId)
+        }
+    }
+
     fun toggleBlockPeer(peerId: String) {
         viewModelScope.launch {
             repository.toggleBlockPeer(peerId)
@@ -293,12 +389,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun updateServerlessUrl(newUrl: String) {
-        repository.serverlessUrl.value = newUrl
+        repository.updateServerlessUrl(newUrl)
     }
 
     fun testRelayConnection() {
         viewModelScope.launch {
-            _relayTestResult.value = "Pinging relay endpoint..."
+            _relayTestResult.value = "Checking connection..."
             val result = repository.testRelayConnection()
             _relayTestResult.value = result
         }
@@ -313,6 +409,18 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     fun reactToMessage(messageId: String, emoji: String) {
         viewModelScope.launch {
             repository.updateMessageReaction(messageId, emoji)
+        }
+    }
+
+    fun toggleStarMessage(messageId: String, currentStarred: Boolean) {
+        viewModelScope.launch {
+            repository.updateMessageStarred(messageId, !currentStarred)
+        }
+    }
+
+    fun editMessage(message: MessageEntity, newContent: String) {
+        viewModelScope.launch {
+            repository.editMessage(message, newContent)
         }
     }
 

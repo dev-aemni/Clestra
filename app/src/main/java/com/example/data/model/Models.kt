@@ -19,6 +19,8 @@ data class UserAccountEntity(
     val avatarIcon: String = "🍑",
     val avatarColor: Long = 0xFFC4763A,
     val passwordHash: String,
+    val activeTag: String? = null,
+    val unlockedTags: String = "",
     val createdAt: Long = System.currentTimeMillis()
 )
 
@@ -40,7 +42,15 @@ data class MessageEntity(
     val isOutgoing: Boolean,
     val reaction: String? = null,
     val mediaUri: String? = null,
-    val messageType: String = "TEXT" // "TEXT", "IMAGE", "GIF", "STICKER"
+    val messageType: String = "TEXT", // "TEXT", "IMAGE", "GIF", "STICKER", "FILE"
+    val attachmentName: String? = null,
+    val attachmentMimeType: String? = null,
+    val attachmentSizeBytes: Long = 0L,
+    val replyToMessageId: String? = null,
+    val replyToPreview: String? = null,
+    val replyToSenderName: String? = null,
+    val isStarred: Boolean = false,
+    val isEdited: Boolean = false
 )
 
 /**
@@ -75,6 +85,8 @@ data class ConversationEntity(
     val lastDeliveryRoute: String = "P2P_DIRECT",
     val isOfficial: Boolean = false,
     val isMuted: Boolean = false,
+    val mutedUntil: Long? = null,
+    val isPinned: Boolean = false,
     val isBlocked: Boolean = false
 )
 
@@ -94,6 +106,7 @@ data class PeerEntity(
     val lastSeen: Long = System.currentTimeMillis(),
     val isOfficial: Boolean = false,
     val isMuted: Boolean = false,
+    val mutedUntil: Long? = null,
     val isBlocked: Boolean = false
 )
 
@@ -104,7 +117,8 @@ data class SendMessagePayload(
     @Json(name = "senderId") val senderId: String,
     @Json(name = "recipientId") val recipientId: String,
     @Json(name = "compressedContent") val compressedContent: String,
-    @Json(name = "timestamp") val timestamp: Long
+    @Json(name = "timestamp") val timestamp: Long,
+    @Json(name = "pulse") val pulse: Boolean? = null
 )
 
 @JsonClass(generateAdapter = true)

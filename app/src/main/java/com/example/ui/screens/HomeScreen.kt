@@ -1,15 +1,25 @@
 package com.example.ui.screens
 
 import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.outlined.Chat
@@ -18,34 +28,33 @@ import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.outlined.People
 import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
-import android.content.pm.PackageManager
 import com.example.ui.ChatViewModel
-import com.example.ui.theme.ClestraBubbleSent
+import com.example.ui.components.neumorphicRaised
 import com.example.ui.theme.ClestraCharcoal
 import com.example.ui.theme.ClestraCopper
 import com.example.ui.theme.ClestraCream
+import com.example.ui.theme.ClestraNeuSurface
 import com.example.ui.theme.ClestraTextSoft
 
 @Composable
@@ -79,107 +88,76 @@ fun HomeScreen(
         containerColor = ClestraCream,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
-            Surface(
-                color = Color.White,
-                shadowElevation = 8.dp
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(horizontal = 18.dp, vertical = 12.dp)
             ) {
-                NavigationBar(
-                    containerColor = Color.White,
-                    tonalElevation = 0.dp,
-                    windowInsets = WindowInsets.navigationBars
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .neumorphicRaised(
+                            cornerRadius = 28.dp,
+                            elevation = 8.dp,
+                            containerColor = Color.White
+                        )
+                        .padding(horizontal = 8.dp, vertical = 7.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    NavigationBarItem(
+                    NeumorphicNavTab(
                         selected = selectedTab == 0,
+                        icon = if (selectedTab == 0) Icons.AutoMirrored.Filled.Chat else Icons.AutoMirrored.Outlined.Chat,
+                        label = "Chats",
                         onClick = { selectedTab = 0 },
-                        icon = {
-                            Icon(
-                                imageVector = if (selectedTab == 0) Icons.AutoMirrored.Filled.Chat else Icons.AutoMirrored.Outlined.Chat,
-                                contentDescription = "Chats"
-                            )
-                        },
-                        label = {
-                            Text(
-                                text = "Chats",
-                                fontSize = 12.sp,
-                                fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Medium
-                            )
-                        },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = ClestraCopper,
-                            unselectedIconColor = ClestraTextSoft,
-                            selectedTextColor = ClestraCharcoal,
-                            unselectedTextColor = ClestraTextSoft,
-                            indicatorColor = ClestraBubbleSent.copy(alpha = 0.5f)
-                        ),
-                        modifier = Modifier.testTag("nav_chats")
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("nav_chats")
                     )
-
-                    NavigationBarItem(
+                    NeumorphicNavTab(
                         selected = selectedTab == 1,
+                        icon = if (selectedTab == 1) Icons.Filled.People else Icons.Outlined.People,
+                        label = "Contacts",
                         onClick = { selectedTab = 1 },
-                        icon = {
-                            Icon(
-                                imageVector = if (selectedTab == 1) Icons.Filled.People else Icons.Outlined.People,
-                                contentDescription = "Contacts"
-                            )
-                        },
-                        label = {
-                            Text(
-                                text = "Contacts",
-                                fontSize = 12.sp,
-                                fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Medium
-                            )
-                        },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = ClestraCopper,
-                            unselectedIconColor = ClestraTextSoft,
-                            selectedTextColor = ClestraCharcoal,
-                            unselectedTextColor = ClestraTextSoft,
-                            indicatorColor = ClestraBubbleSent.copy(alpha = 0.5f)
-                        ),
-                        modifier = Modifier.testTag("nav_contacts")
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("nav_contacts")
                     )
-
-                    NavigationBarItem(
+                    NeumorphicNavTab(
                         selected = selectedTab == 2,
+                        icon = if (selectedTab == 2) Icons.Filled.Person else Icons.Outlined.Person,
+                        label = "Profile",
                         onClick = { selectedTab = 2 },
-                        icon = {
-                            Icon(
-                                imageVector = if (selectedTab == 2) Icons.Filled.Person else Icons.Outlined.Person,
-                                contentDescription = "Profile"
-                            )
-                        },
-                        label = {
-                            Text(
-                                text = "Profile",
-                                fontSize = 12.sp,
-                                fontWeight = if (selectedTab == 2) FontWeight.Bold else FontWeight.Medium
-                            )
-                        },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = ClestraCopper,
-                            unselectedIconColor = ClestraTextSoft,
-                            selectedTextColor = ClestraCharcoal,
-                            unselectedTextColor = ClestraTextSoft,
-                            indicatorColor = ClestraBubbleSent.copy(alpha = 0.5f)
-                        ),
-                        modifier = Modifier.testTag("nav_profile")
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("nav_profile")
                     )
                 }
             }
         },
         floatingActionButton = {
             if (selectedTab == 0) {
-                FloatingActionButton(
-                    onClick = onOpenNewChat,
-                    shape = CircleShape,
-                    containerColor = ClestraCopper,
-                    contentColor = Color.White,
-                    modifier = Modifier.testTag("new_chat_fab")
+                Box(
+                    modifier = Modifier
+                        .minimumInteractiveComponentSize()
+                        .size(58.dp)
+                        .neumorphicRaised(
+                            cornerRadius = 29.dp,
+                            elevation = 7.dp,
+                            containerColor = ClestraCopper,
+                            accentBorderColor = Color.White.copy(alpha = 0.75f)
+                        )
+                        .clip(CircleShape)
+                        .clickable { onOpenNewChat() }
+                        .testTag("new_chat_fab"),
+                    contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.Add,
-                        contentDescription = "New Chat"
+                        contentDescription = "New Chat",
+                        tint = Color.White,
+                        modifier = Modifier.size(26.dp)
                     )
                 }
             }
@@ -206,6 +184,51 @@ fun HomeScreen(
                     onOpenSettings = onOpenSettings
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun NeumorphicNavTab(
+    selected: Boolean,
+    icon: ImageVector,
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val pillModifier = if (selected) {
+        Modifier.neumorphicRaised(
+            cornerRadius = 22.dp,
+            elevation = 3.dp,
+            containerColor = com.example.ui.theme.ClestraBubbleSent.copy(alpha = 0.72f),
+            accentBorderColor = Color.White
+        )
+    } else {
+        Modifier
+    }
+
+    Box(
+        modifier = modifier
+            .height(50.dp)
+            .then(pillModifier)
+            .clip(RoundedCornerShape(22.dp))
+            .clickable { onClick() },
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(
+                imageVector = icon,
+                contentDescription = label,
+                tint = if (selected) com.example.ui.theme.ClestraCopperDark else ClestraTextSoft,
+                modifier = Modifier.size(21.dp)
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = label,
+                color = if (selected) ClestraCharcoal else ClestraTextSoft,
+                fontSize = 11.sp,
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+            )
         }
     }
 }

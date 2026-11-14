@@ -1,6 +1,7 @@
 package com.example.data.network
 
 import com.example.BuildConfig
+import com.example.data.security.InternalVault
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 import com.squareup.moshi.Moshi
@@ -17,10 +18,9 @@ import java.util.concurrent.TimeUnit
 
 enum class GifProvider(val displayName: String, val badge: String) {
     ALL("All", "ALL"),
-    TENOR("Tenor", "TENOR"),
     GIPHY("GIPHY", "GIPHY"),
-    KLIPY("KLIPY", "KLIPY"),
-    REACTIONS("Reactions", "REACT")
+    REACTIONS("Reactions", "REACT"),
+    OTAKU("AnimeGIFs", "GIF")
 }
 
 data class GifItem(
@@ -38,14 +38,15 @@ data class GifSearchResult(
 
 // --- GIPHY DTOs ---
 @JsonClass(generateAdapter = true)
-data class GiphyImageVariant(
+data class GiphyRendition(
     @Json(name = "url") val url: String? = null
 )
 
 @JsonClass(generateAdapter = true)
 data class GiphyImages(
-    @Json(name = "fixed_width") val fixedWidth: GiphyImageVariant? = null,
-    @Json(name = "original") val original: GiphyImageVariant? = null
+    @Json(name = "fixed_width") val fixedWidth: GiphyRendition? = null,
+    @Json(name = "original") val original: GiphyRendition? = null,
+    @Json(name = "downsized") val downsized: GiphyRendition? = null
 )
 
 @JsonClass(generateAdapter = true)
@@ -60,32 +61,6 @@ data class GiphyResponse(
     @Json(name = "data") val data: List<GiphyGifObject> = emptyList()
 )
 
-// --- Tenor & KLIPY v2 DTOs ---
-@JsonClass(generateAdapter = true)
-data class TenorMediaFormat(
-    @Json(name = "url") val url: String? = null
-)
-
-@JsonClass(generateAdapter = true)
-data class TenorMediaFormats(
-    @Json(name = "tinygif") val tinygif: TenorMediaFormat? = null,
-    @Json(name = "gif") val gif: TenorMediaFormat? = null,
-    @Json(name = "mediumgif") val mediumgif: TenorMediaFormat? = null
-)
-
-@JsonClass(generateAdapter = true)
-data class TenorResultObject(
-    @Json(name = "id") val id: String,
-    @Json(name = "content_description") val contentDescription: String? = null,
-    @Json(name = "title") val title: String? = null,
-    @Json(name = "media_formats") val mediaFormats: TenorMediaFormats? = null
-)
-
-@JsonClass(generateAdapter = true)
-data class TenorResponse(
-    @Json(name = "results") val results: List<TenorResultObject> = emptyList()
-)
-
 // --- Nekos.best Public Reaction GIF DTOs ---
 @JsonClass(generateAdapter = true)
 data class NekosBestItem(
@@ -98,11 +73,17 @@ data class NekosBestResponse(
     @Json(name = "results") val results: List<NekosBestItem> = emptyList()
 )
 
+// --- OtakuGIFs Public Reaction GIF DTO ---
+@JsonClass(generateAdapter = true)
+data class OtakuGifResponse(
+    @Json(name = "url") val url: String? = null
+)
+
 interface GiphyApiService {
     @GET("v1/gifs/trending")
     suspend fun trending(
         @Query("api_key") apiKey: String,
-        @Query("limit") limit: Int = 20,
+        @Query("limit") limit: Int = 24,
         @Query("rating") rating: String = "pg-13"
     ): GiphyResponse
 
@@ -110,41 +91,9 @@ interface GiphyApiService {
     suspend fun search(
         @Query("api_key") apiKey: String,
         @Query("q") query: String,
-        @Query("limit") limit: Int = 20,
+        @Query("limit") limit: Int = 24,
         @Query("rating") rating: String = "pg-13"
     ): GiphyResponse
-}
-
-interface TenorApiService {
-    @GET("v2/featured")
-    suspend fun featured(
-        @Query("key") apiKey: String,
-        @Query("limit") limit: Int = 20,
-        @Query("media_filter") mediaFilter: String = "gif,tinygif"
-    ): TenorResponse
-
-    @GET("v2/search")
-    suspend fun search(
-        @Query("key") apiKey: String,
-        @Query("q") query: String,
-        @Query("limit") limit: Int = 20,
-        @Query("media_filter") mediaFilter: String = "gif,tinygif"
-    ): TenorResponse
-}
-
-interface KlipyApiService {
-    @GET("v2/featured")
-    suspend fun featured(
-        @Query("key") apiKey: String,
-        @Query("limit") limit: Int = 20
-    ): TenorResponse
-
-    @GET("v2/search")
-    suspend fun search(
-        @Query("key") apiKey: String,
-        @Query("q") query: String,
-        @Query("limit") limit: Int = 20
-    ): TenorResponse
 }
 
 interface NekosBestApiService {
@@ -153,6 +102,14 @@ interface NekosBestApiService {
         @Path("category") category: String,
         @Query("amount") amount: Int = 10
     ): NekosBestResponse
+}
+
+interface OtakuGifsApiService {
+    @GET("gif")
+    suspend fun fetchGif(
+        @Query("reaction") reaction: String,
+        @Query("format") format: String = "gif"
+    ): OtakuGifResponse
 }
 
 object GifProviderManager {
@@ -170,55 +127,37 @@ object GifProviderManager {
 
     private val giphyService: GiphyApiService by lazy {
         Retrofit.Builder()
-            .baseUrl("https://api.giphy.com/")
+            .baseUrl(InternalVault.giphyEndpoint())
             .client(okHttpClient)
             .addConverterFactory(MoshiConverterFactory.create(moshi))
             .build()
             .create(GiphyApiService::class.java)
     }
 
-    private val tenorService: TenorApiService by lazy {
-        Retrofit.Builder()
-            .baseUrl("https://tenor.googleapis.com/")
-            .client(okHttpClient)
-            .addConverterFactory(MoshiConverterFactory.create(moshi))
-            .build()
-            .create(TenorApiService::class.java)
-    }
-
-    private val klipyService: KlipyApiService by lazy {
-        Retrofit.Builder()
-            .baseUrl("https://api.klipy.com/")
-            .client(okHttpClient)
-            .addConverterFactory(MoshiConverterFactory.create(moshi))
-            .build()
-            .create(KlipyApiService::class.java)
-    }
-
     private val nekosService: NekosBestApiService by lazy {
         Retrofit.Builder()
-            .baseUrl("https://nekos.best/")
+            .baseUrl(InternalVault.nekosEndpoint())
             .client(okHttpClient)
             .addConverterFactory(MoshiConverterFactory.create(moshi))
             .build()
             .create(NekosBestApiService::class.java)
     }
 
+    private val otakuService: OtakuGifsApiService by lazy {
+        Retrofit.Builder()
+            .baseUrl(InternalVault.otakuEndpoint())
+            .client(okHttpClient)
+            .addConverterFactory(MoshiConverterFactory.create(moshi))
+            .build()
+            .create(OtakuGifsApiService::class.java)
+    }
+
     private val giphyKey: String
         get() = runCatching { BuildConfig.GIPHY_API_KEY }.getOrDefault("")
 
-    private val tenorKey: String
-        get() = runCatching { BuildConfig.TENOR_API_KEY }.getOrDefault("")
-
-    private val klipyKey: String
-        get() = runCatching { BuildConfig.KLIPY_API_KEY }.getOrDefault("")
-
     fun isProviderConfigured(provider: GifProvider): Boolean = when (provider) {
-        GifProvider.ALL -> true
-        GifProvider.REACTIONS -> true
+        GifProvider.ALL, GifProvider.REACTIONS, GifProvider.OTAKU -> true
         GifProvider.GIPHY -> giphyKey.isNotBlank() && giphyKey != "MY_GIPHY_API_KEY"
-        GifProvider.TENOR -> tenorKey.isNotBlank() && tenorKey != "MY_TENOR_API_KEY"
-        GifProvider.KLIPY -> klipyKey.isNotBlank() && klipyKey != "MY_KLIPY_API_KEY"
     }
 
     suspend fun searchOrTrending(
@@ -227,83 +166,38 @@ object GifProviderManager {
     ): GifSearchResult = coroutineScope {
         val cleanQuery = query.trim()
         when (provider) {
-            GifProvider.TENOR -> {
-                if (!isProviderConfigured(GifProvider.TENOR)) {
-                    GifSearchResult(
-                        items = emptyList(),
-                        notice = "Set TENOR_API_KEY in AI Studio Secrets to search Tenor GIFs."
-                    )
-                } else {
-                    val items = fetchTenor(cleanQuery)
-                    GifSearchResult(
-                        items = items,
-                        notice = if (items.isEmpty()) "No Tenor GIFs found for \"$cleanQuery\"." else null
-                    )
-                }
-            }
             GifProvider.GIPHY -> {
-                if (!isProviderConfigured(GifProvider.GIPHY)) {
-                    GifSearchResult(
-                        items = emptyList(),
-                        notice = "Set GIPHY_API_KEY in AI Studio Secrets to search GIPHY GIFs."
-                    )
+                val items = if (isProviderConfigured(GifProvider.GIPHY)) {
+                    fetchGiphy(cleanQuery)
                 } else {
-                    val items = fetchGiphy(cleanQuery)
-                    GifSearchResult(
-                        items = items,
-                        notice = if (items.isEmpty()) "No GIPHY GIFs found for \"$cleanQuery\"." else null
-                    )
+                    emptyList()
                 }
-            }
-            GifProvider.KLIPY -> {
-                if (!isProviderConfigured(GifProvider.KLIPY)) {
-                    GifSearchResult(
-                        items = emptyList(),
-                        notice = "Set KLIPY_API_KEY in AI Studio Secrets to search KLIPY GIFs."
-                    )
-                } else {
-                    val items = fetchKlipy(cleanQuery)
-                    GifSearchResult(
-                        items = items,
-                        notice = if (items.isEmpty()) "No KLIPY GIFs found for \"$cleanQuery\"." else null
-                    )
-                }
+                GifSearchResult(items = items, notice = null)
             }
             GifProvider.REACTIONS -> {
-                val items = fetchReactions(cleanQuery)
-                GifSearchResult(
-                    items = items,
-                    notice = if (items.isEmpty()) "Could not load reaction GIFs. Check internet connection." else null
-                )
+                GifSearchResult(items = fetchReactions(cleanQuery), notice = null)
+            }
+            GifProvider.OTAKU -> {
+                GifSearchResult(items = fetchOtakuGifs(cleanQuery), notice = null)
             }
             GifProvider.ALL -> {
-                val tenorJob = async { if (isProviderConfigured(GifProvider.TENOR)) fetchTenor(cleanQuery) else emptyList() }
-                val giphyJob = async { if (isProviderConfigured(GifProvider.GIPHY)) fetchGiphy(cleanQuery) else emptyList() }
-                val klipyJob = async { if (isProviderConfigured(GifProvider.KLIPY)) fetchKlipy(cleanQuery) else emptyList() }
+                val giphyJob = async {
+                    if (isProviderConfigured(GifProvider.GIPHY)) fetchGiphy(cleanQuery) else emptyList()
+                }
                 val reactionsJob = async { fetchReactions(cleanQuery) }
+                val otakuJob = async { fetchOtakuGifs(cleanQuery) }
 
                 val combined = buildList {
-                    val lists = listOf(tenorJob.await(), giphyJob.await(), klipyJob.await(), reactionsJob.await())
+                    val lists = listOf(giphyJob.await(), reactionsJob.await(), otakuJob.await())
                     val maxLen = lists.maxOfOrNull { it.size } ?: 0
                     for (i in 0 until maxLen) {
                         for (list in lists) {
                             if (i < list.size) add(list[i])
                         }
                     }
-                }
+                }.distinctBy { it.fullUrl }
 
-                val missingKeys = listOf(
-                    GifProvider.TENOR,
-                    GifProvider.GIPHY,
-                    GifProvider.KLIPY
-                ).filter { !isProviderConfigured(it) }
-
-                val notice = when {
-                    combined.isEmpty() -> "No GIFs loaded. Check network connection or add GIF API keys in Secrets."
-                    missingKeys.isNotEmpty() -> "Showing live Reactions. Add Tenor, GIPHY, or KLIPY keys in Secrets to unlock all providers."
-                    else -> null
-                }
-                GifSearchResult(items = combined, notice = notice)
+                GifSearchResult(items = combined, notice = null)
             }
         }
     }
@@ -315,7 +209,10 @@ object GifProviderManager {
             giphyService.search(apiKey = giphyKey, query = query)
         }
         response.data.mapNotNull { item ->
-            val preview = item.images?.fixedWidth?.url ?: item.images?.original?.url ?: return@mapNotNull null
+            val preview = item.images?.fixedWidth?.url
+                ?: item.images?.downsized?.url
+                ?: item.images?.original?.url
+                ?: return@mapNotNull null
             val full = item.images?.original?.url ?: preview
             GifItem(
                 id = "giphy_${item.id}",
@@ -323,54 +220,6 @@ object GifProviderManager {
                 previewUrl = preview,
                 fullUrl = full,
                 provider = GifProvider.GIPHY
-            )
-        }
-    } catch (_: Exception) {
-        emptyList()
-    }
-
-    private suspend fun fetchTenor(query: String): List<GifItem> = try {
-        val response = if (query.isBlank()) {
-            tenorService.featured(apiKey = tenorKey)
-        } else {
-            tenorService.search(apiKey = tenorKey, query = query)
-        }
-        response.results.mapNotNull { item ->
-            val preview = item.mediaFormats?.tinygif?.url
-                ?: item.mediaFormats?.mediumgif?.url
-                ?: item.mediaFormats?.gif?.url
-                ?: return@mapNotNull null
-            val full = item.mediaFormats?.gif?.url ?: preview
-            GifItem(
-                id = "tenor_${item.id}",
-                title = item.contentDescription?.ifBlank { item.title } ?: "Tenor GIF",
-                previewUrl = preview,
-                fullUrl = full,
-                provider = GifProvider.TENOR
-            )
-        }
-    } catch (_: Exception) {
-        emptyList()
-    }
-
-    private suspend fun fetchKlipy(query: String): List<GifItem> = try {
-        val response = if (query.isBlank()) {
-            klipyService.featured(apiKey = klipyKey)
-        } else {
-            klipyService.search(apiKey = klipyKey, query = query)
-        }
-        response.results.mapNotNull { item ->
-            val preview = item.mediaFormats?.tinygif?.url
-                ?: item.mediaFormats?.mediumgif?.url
-                ?: item.mediaFormats?.gif?.url
-                ?: return@mapNotNull null
-            val full = item.mediaFormats?.gif?.url ?: preview
-            GifItem(
-                id = "klipy_${item.id}",
-                title = item.contentDescription?.ifBlank { item.title } ?: "KLIPY GIF",
-                previewUrl = preview,
-                fullUrl = full,
-                provider = GifProvider.KLIPY
             )
         }
     } catch (_: Exception) {
@@ -420,6 +269,29 @@ object GifProviderManager {
                 }
             }
             responses.flatMap { it.await() }.distinctBy { it.fullUrl }
+        }
+    } catch (_: Exception) {
+        emptyList()
+    }
+
+    private suspend fun fetchOtakuGifs(query: String): List<GifItem> = try {
+        coroutineScope {
+            val categories = resolveReactionCategories(query)
+            val targets = (0 until 6).map { idx -> categories[idx % categories.size] }
+            val jobs = targets.mapIndexed { idx, reaction ->
+                async {
+                    val res = runCatching { otakuService.fetchGif(reaction = reaction) }.getOrNull()
+                    val url = res?.url ?: return@async null
+                    GifItem(
+                        id = "otaku_${reaction}_${idx}_${url.hashCode()}",
+                        title = reaction.replaceFirstChar { it.uppercase() },
+                        previewUrl = url,
+                        fullUrl = url,
+                        provider = GifProvider.OTAKU
+                    )
+                }
+            }
+            jobs.mapNotNull { it.await() }.distinctBy { it.fullUrl }
         }
     } catch (_: Exception) {
         emptyList()

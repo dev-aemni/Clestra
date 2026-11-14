@@ -4,6 +4,7 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -16,7 +17,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
@@ -28,14 +28,11 @@ import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.NetworkCheck
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -44,7 +41,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
@@ -56,11 +52,18 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.ChatViewModel
 import com.example.ui.components.ClestraPillInput
+import com.example.ui.components.ClestraWallpaperBox
+import com.example.ui.components.NeumorphicButton
+import com.example.ui.components.NeumorphicCard
+import com.example.ui.components.neumorphicPressed
+import com.example.ui.components.neumorphicRaised
 import com.example.ui.theme.ClestraBubbleSent
 import com.example.ui.theme.ClestraCharcoal
 import com.example.ui.theme.ClestraCopper
 import com.example.ui.theme.ClestraCopperDark
 import com.example.ui.theme.ClestraCream
+import com.example.ui.theme.ClestraNeuSurface
+import com.example.ui.theme.ClestraNeuWell
 import com.example.ui.theme.ClestraOnline
 import com.example.ui.theme.ClestraTextSoft
 import com.example.ui.theme.ClestraWarmBeige
@@ -106,8 +109,14 @@ module.exports = async (req, res) => {
   const col = db.collection('pending_messages');
 
   if (req.method === 'POST') {
-    const { senderId, recipientId, compressedContent, timestamp } = req.body;
-    await col.insertOne({ senderId, recipientId, compressedContent, timestamp, delivered: false });
+    const { senderId, recipientId, compressedContent, timestamp, pulse } = req.body;
+    const doc = { senderId, recipientId, compressedContent, timestamp, delivered: false };
+    const result = await col.insertOne(doc);
+    // Keepalive signal: verify active DB connection then delete instantly (0 bytes kept)
+    if (pulse === true || compressedContent === 'PULSE') {
+      await col.deleteOne({ _id: result.insertedId });
+      return res.status(200).json({ success: true, status: 'pulse_deleted' });
+    }
     return res.status(201).json({ success: true, status: 'queued_offline_serverless' });
   }
 
@@ -123,26 +132,39 @@ module.exports = async (req, res) => {
         """.trimIndent()
     }
 
-    Column(
+    ClestraWallpaperBox(
+        intensePattern = false,
         modifier = modifier
-            .fillMaxSize()
-            .background(ClestraCream)
     ) {
-        Surface(
-            color = Color.White,
-            shadowElevation = 4.dp,
-            modifier = Modifier.fillMaxWidth()
+        Column(modifier = Modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 10.dp)
         ) {
             Row(
                 modifier = Modifier
-                    .statusBarsPadding()
                     .fillMaxWidth()
-                    .padding(12.dp),
+                    .neumorphicRaised(
+                        cornerRadius = 22.dp,
+                        elevation = 5.dp,
+                        containerColor = ClestraNeuSurface
+                    )
+                    .padding(horizontal = 10.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(
                     onClick = onBack,
-                    modifier = Modifier.testTag("settings_back_button")
+                    modifier = Modifier
+                        .minimumInteractiveComponentSize()
+                        .size(42.dp)
+                        .neumorphicRaised(
+                            cornerRadius = 14.dp,
+                            elevation = 3.dp,
+                            containerColor = ClestraNeuSurface
+                        )
+                        .testTag("settings_back_button")
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
@@ -150,7 +172,7 @@ module.exports = async (req, res) => {
                         tint = ClestraCopper
                     )
                 }
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(12.dp))
                 Text(
                     text = "Settings & Relay",
                     color = ClestraCharcoal,
@@ -166,21 +188,34 @@ module.exports = async (req, res) => {
             modifier = Modifier.fillMaxSize()
         ) {
             item {
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = Color.White,
-                    shadowElevation = 1.dp,
+                NeumorphicCard(
+                    cornerRadius = 20.dp,
+                    elevation = 6.dp,
+                    containerColor = ClestraNeuSurface,
+                    contentPadding = PaddingValues(16.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(
-                            text = myName,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = ClestraCharcoal
-                        )
+                    Column(modifier = Modifier.fillMaxWidth()) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Lock, contentDescription = null, tint = ClestraTextSoft, modifier = Modifier.size(12.dp))
+                            Text(
+                                text = myName,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = ClestraCharcoal
+                            )
+                            val myTag = account?.activeTag
+                            if (!myTag.isNullOrBlank()) {
+                                Spacer(Modifier.width(6.dp))
+                                com.example.ui.components.SoftUiBadgeTag(label = myTag)
+                            }
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Default.Lock,
+                                contentDescription = null,
+                                tint = ClestraTextSoft,
+                                modifier = Modifier.size(12.dp)
+                            )
                             Spacer(Modifier.width(4.dp))
                             Text(
                                 text = "Permanent Clestra ID",
@@ -194,9 +229,11 @@ module.exports = async (req, res) => {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(ClestraBubbleSent.copy(alpha = 0.55f))
-                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                                .neumorphicPressed(
+                                    cornerRadius = 14.dp,
+                                    containerColor = ClestraNeuWell
+                                )
+                                .padding(horizontal = 14.dp, vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
@@ -205,16 +242,28 @@ module.exports = async (req, res) => {
                                 fontFamily = FontFamily.Monospace,
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = ClestraCharcoal
+                                color = ClestraCharcoal,
+                                modifier = Modifier.weight(1f)
                             )
                             IconButton(
                                 onClick = {
                                     clipboard.setText(AnnotatedString(myId))
                                     Toast.makeText(context, "Copied ID: $myId", Toast.LENGTH_SHORT).show()
                                 },
-                                modifier = Modifier.size(32.dp)
+                                modifier = Modifier
+                                    .size(34.dp)
+                                    .neumorphicRaised(
+                                        cornerRadius = 10.dp,
+                                        elevation = 3.dp,
+                                        containerColor = ClestraNeuSurface
+                                    )
                             ) {
-                                Icon(Icons.Default.ContentCopy, contentDescription = "Copy ID", tint = ClestraCopperDark, modifier = Modifier.size(16.dp))
+                                Icon(
+                                    Icons.Default.ContentCopy,
+                                    contentDescription = "Copy ID",
+                                    tint = ClestraCopperDark,
+                                    modifier = Modifier.size(16.dp)
+                                )
                             }
                         }
                     }
@@ -222,15 +271,21 @@ module.exports = async (req, res) => {
             }
 
             item {
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = Color.White,
-                    shadowElevation = 1.dp,
+                NeumorphicCard(
+                    cornerRadius = 20.dp,
+                    elevation = 6.dp,
+                    containerColor = ClestraNeuSurface,
+                    contentPadding = PaddingValues(16.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Key, contentDescription = null, tint = ClestraCopper, modifier = Modifier.size(20.dp))
+                            Icon(
+                                Icons.Default.Key,
+                                contentDescription = null,
+                                tint = ClestraCopper,
+                                modifier = Modifier.size(20.dp)
+                            )
                             Spacer(Modifier.width(8.dp))
                             Text(
                                 text = "MongoDB Secrets Status",
@@ -243,45 +298,52 @@ module.exports = async (req, res) => {
                         Spacer(Modifier.height(10.dp))
 
                         if (mongoSecret.isNotBlank()) {
-                            Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = ClestraOnline.copy(alpha = 0.14f),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(12.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(Icons.Default.CheckCircle, contentDescription = null, tint = ClestraOnline, modifier = Modifier.size(18.dp))
-                                    Spacer(Modifier.width(8.dp))
-                                    Text(
-                                        text = "MONGODB_URI configured via BuildConfig.",
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = ClestraCharcoal
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .neumorphicPressed(
+                                        cornerRadius = 14.dp,
+                                        containerColor = ClestraOnline.copy(alpha = 0.14f)
                                     )
-                                }
+                                    .padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Default.CheckCircle,
+                                    contentDescription = null,
+                                    tint = ClestraOnline,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    text = "MONGODB_URI configured via BuildConfig.",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = ClestraCharcoal
+                                )
                             }
                         } else {
-                            Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = ClestraWarmBeige,
-                                modifier = Modifier.fillMaxWidth()
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .neumorphicPressed(
+                                        cornerRadius = 14.dp,
+                                        containerColor = ClestraWarmBeige
+                                    )
+                                    .padding(12.dp)
                             ) {
-                                Column(modifier = Modifier.padding(12.dp)) {
-                                    Text(
-                                        text = "MONGODB_URI not configured yet.",
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = ClestraCopperDark
-                                    )
-                                    Spacer(Modifier.height(4.dp))
-                                    Text(
-                                        text = "Add MONGODB_URI in the AI Studio Secrets panel or set your serverless relay endpoint URL below.",
-                                        fontSize = 11.sp,
-                                        color = ClestraTextSoft
-                                    )
-                                }
+                                Text(
+                                    text = "MONGODB_URI not configured yet.",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = ClestraCopperDark
+                                )
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    text = "Add MONGODB_URI in the AI Studio Secrets panel or set your serverless relay endpoint URL below.",
+                                    fontSize = 11.sp,
+                                    color = ClestraTextSoft
+                                )
                             }
                         }
                     }
@@ -289,15 +351,21 @@ module.exports = async (req, res) => {
             }
 
             item {
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = Color.White,
-                    shadowElevation = 1.dp,
+                NeumorphicCard(
+                    cornerRadius = 20.dp,
+                    elevation = 6.dp,
+                    containerColor = ClestraNeuSurface,
+                    contentPadding = PaddingValues(16.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Dns, contentDescription = null, tint = ClestraCopper, modifier = Modifier.size(20.dp))
+                            Icon(
+                                Icons.Default.Dns,
+                                contentDescription = null,
+                                tint = ClestraCopper,
+                                modifier = Modifier.size(20.dp)
+                            )
                             Spacer(Modifier.width(8.dp))
                             Text(
                                 text = "Serverless Relay Endpoint",
@@ -320,53 +388,68 @@ module.exports = async (req, res) => {
                             value = urlInput,
                             onValueChange = { urlInput = it },
                             hint = "https://clestra-relay.vercel.app",
-                            containerColor = ClestraCream,
                             modifier = Modifier.testTag("relay_url_input")
                         )
 
-                        Spacer(Modifier.height(10.dp))
+                        Spacer(Modifier.height(12.dp))
 
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                            OutlinedButton(
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End
+                        ) {
+                            NeumorphicButton(
                                 onClick = {
                                     viewModel.updateServerlessUrl(urlInput.trim())
                                     viewModel.testRelayConnection()
                                 },
-                                shape = RoundedCornerShape(12.dp),
+                                cornerRadius = 12.dp,
+                                containerColor = ClestraNeuSurface,
+                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
                                 modifier = Modifier.testTag("test_relay_button")
                             ) {
-                                Icon(Icons.Default.NetworkCheck, contentDescription = null, tint = ClestraCopper, modifier = Modifier.size(16.dp))
-                                Spacer(Modifier.width(6.dp))
-                                Text("Test", color = ClestraCopper)
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        Icons.Default.NetworkCheck,
+                                        contentDescription = null,
+                                        tint = ClestraCopper,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("Test", color = ClestraCopper, fontWeight = FontWeight.SemiBold)
+                                }
                             }
 
-                            Spacer(Modifier.width(8.dp))
+                            Spacer(Modifier.width(10.dp))
 
-                            Button(
+                            NeumorphicButton(
                                 onClick = {
                                     viewModel.updateServerlessUrl(urlInput.trim())
                                     Toast.makeText(context, "URL saved", Toast.LENGTH_SHORT).show()
                                 },
-                                shape = RoundedCornerShape(12.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = ClestraCopper, contentColor = Color.White),
+                                cornerRadius = 12.dp,
+                                containerColor = ClestraCopper,
+                                contentPadding = PaddingValues(horizontal = 18.dp, vertical = 10.dp),
                                 modifier = Modifier.testTag("save_url_button")
                             ) {
-                                Text("Save")
+                                Text("Save", color = Color.White, fontWeight = FontWeight.Bold)
                             }
                         }
 
                         if (testResult != null) {
-                            Spacer(Modifier.height(10.dp))
-                            Surface(
-                                shape = RoundedCornerShape(10.dp),
-                                color = ClestraWarmBeige,
-                                modifier = Modifier.fillMaxWidth()
+                            Spacer(Modifier.height(12.dp))
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .neumorphicPressed(
+                                        cornerRadius = 12.dp,
+                                        containerColor = ClestraWarmBeige
+                                    )
+                                    .padding(12.dp)
                             ) {
                                 Text(
                                     text = testResult ?: "",
                                     fontSize = 12.sp,
-                                    color = ClestraCharcoal,
-                                    modifier = Modifier.padding(10.dp)
+                                    color = ClestraCharcoal
                                 )
                             }
                         }
@@ -375,15 +458,21 @@ module.exports = async (req, res) => {
             }
 
             item {
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = Color.White,
-                    shadowElevation = 1.dp,
+                NeumorphicCard(
+                    cornerRadius = 20.dp,
+                    elevation = 6.dp,
+                    containerColor = ClestraNeuSurface,
+                    contentPadding = PaddingValues(16.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Cloud, contentDescription = null, tint = ClestraCopper, modifier = Modifier.size(20.dp))
+                            Icon(
+                                Icons.Default.Cloud,
+                                contentDescription = null,
+                                tint = ClestraCopper,
+                                modifier = Modifier.size(20.dp)
+                            )
                             Spacer(Modifier.width(8.dp))
                             Text(
                                 text = "Message Synchronization",
@@ -400,25 +489,37 @@ module.exports = async (req, res) => {
                             color = ClestraTextSoft
                         )
 
-                        Spacer(Modifier.height(12.dp))
+                        Spacer(Modifier.height(14.dp))
 
-                        Button(
+                        NeumorphicButton(
                             onClick = { viewModel.syncNow() },
                             enabled = !isSyncing,
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = ClestraCopper, contentColor = Color.White),
+                            cornerRadius = 14.dp,
+                            containerColor = ClestraCopper,
+                            contentPadding = PaddingValues(vertical = 12.dp),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .testTag("manual_sync_button")
                         ) {
-                            if (isSyncing) {
-                                CircularProgressIndicator(color = Color.White, modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                                Spacer(Modifier.width(8.dp))
-                                Text("Syncing...")
-                            } else {
-                                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(Modifier.width(8.dp))
-                                Text("Pull Queued Messages Now")
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (isSyncing) {
+                                    CircularProgressIndicator(
+                                        color = Color.White,
+                                        modifier = Modifier.size(16.dp),
+                                        strokeWidth = 2.dp
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("Syncing...", color = Color.White, fontWeight = FontWeight.Bold)
+                                } else {
+                                    Icon(
+                                        Icons.Default.Refresh,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("Pull Queued Messages Now", color = Color.White, fontWeight = FontWeight.Bold)
+                                }
                             }
                         }
                     }
@@ -426,20 +527,26 @@ module.exports = async (req, res) => {
             }
 
             item {
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = Color.White,
-                    shadowElevation = 1.dp,
+                NeumorphicCard(
+                    cornerRadius = 20.dp,
+                    elevation = 6.dp,
+                    containerColor = ClestraNeuSurface,
+                    contentPadding = PaddingValues(16.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.Code, contentDescription = null, tint = ClestraCopper, modifier = Modifier.size(20.dp))
+                                Icon(
+                                    Icons.Default.Code,
+                                    contentDescription = null,
+                                    tint = ClestraCopper,
+                                    modifier = Modifier.size(20.dp)
+                                )
                                 Spacer(Modifier.width(8.dp))
                                 Text(
                                     text = "Node.js Serverless API",
@@ -454,30 +561,46 @@ module.exports = async (req, res) => {
                                     clipboard.setText(AnnotatedString(serverlessSnippet))
                                     Toast.makeText(context, "Serverless code copied!", Toast.LENGTH_SHORT).show()
                                 },
-                                modifier = Modifier.testTag("copy_snippet_button")
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .neumorphicRaised(
+                                        cornerRadius = 12.dp,
+                                        elevation = 3.dp,
+                                        containerColor = ClestraNeuSurface
+                                    )
+                                    .testTag("copy_snippet_button")
                             ) {
-                                Icon(Icons.Default.ContentCopy, contentDescription = "Copy Code", tint = ClestraCopper)
+                                Icon(
+                                    Icons.Default.ContentCopy,
+                                    contentDescription = "Copy Code",
+                                    tint = ClestraCopper,
+                                    modifier = Modifier.size(18.dp)
+                                )
                             }
                         }
 
-                        Spacer(Modifier.height(8.dp))
+                        Spacer(Modifier.height(10.dp))
 
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = ClestraCharcoal,
-                            modifier = Modifier.fillMaxWidth()
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .neumorphicPressed(
+                                    cornerRadius = 14.dp,
+                                    containerColor = ClestraCharcoal
+                                )
+                                .padding(12.dp)
                         ) {
                             Text(
                                 text = serverlessSnippet,
                                 fontFamily = FontFamily.Monospace,
                                 fontSize = 10.sp,
-                                color = ClestraBubbleSent,
-                                modifier = Modifier.padding(12.dp)
+                                color = ClestraBubbleSent
                             )
                         }
                     }
                 }
             }
+        }
         }
     }
 }

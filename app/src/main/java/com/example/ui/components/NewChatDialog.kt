@@ -2,6 +2,7 @@ package com.example.ui.components
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -18,8 +19,6 @@ import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -40,6 +39,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.data.model.PeerEntity
 import com.example.ui.theme.ClestraBubbleRecv
+import com.example.ui.theme.ClestraBubbleSent
 import com.example.ui.theme.ClestraCharcoal
 import com.example.ui.theme.ClestraCopper
 import com.example.ui.theme.ClestraCream
@@ -58,22 +58,36 @@ fun NewChatDialog(
     var showCustomInput by remember { mutableStateOf(peers.isEmpty()) }
 
     Dialog(onDismissRequest = onDismiss) {
-        Card(
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = ClestraCream),
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp)
+                .neumorphicRaised(
+                    cornerRadius = 24.dp,
+                    elevation = 8.dp,
+                    containerColor = ClestraCream
+                )
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.Chat,
-                        contentDescription = null,
-                        tint = ClestraCopper,
-                        modifier = Modifier.size(22.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .neumorphicRaised(
+                                cornerRadius = 12.dp,
+                                elevation = 3.dp,
+                                containerColor = ClestraBubbleSent
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Chat,
+                            contentDescription = null,
+                            tint = ClestraCopper,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
                     Text(
                         text = "Start a Chat",
                         color = ClestraCharcoal,

@@ -1,5 +1,6 @@
 package com.example.data.network
 
+import com.example.data.security.InternalVault
 import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 import java.security.SecureRandom
@@ -22,7 +23,7 @@ object CryptoUtils {
 
     private fun deriveConversationKey(peerA: String, peerB: String): SecretKeySpec {
         val ordered = listOf(peerA.trim().uppercase(), peerB.trim().uppercase()).sorted()
-        val material = "${ordered[0]}::${ordered[1]}::clestra-e2ee-aes256-v1"
+        val material = "${ordered[0]}::${ordered[1]}::${InternalVault.kdfSalt()}"
         val keyBytes = MessageDigest.getInstance("SHA-256")
             .digest(material.toByteArray(StandardCharsets.UTF_8))
         return SecretKeySpec(keyBytes, "AES")

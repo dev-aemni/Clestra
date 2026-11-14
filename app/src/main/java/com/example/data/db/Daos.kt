@@ -28,6 +28,12 @@ interface AccountDao {
     @Query("UPDATE account SET bio = :bio")
     suspend fun updateBio(bio: String)
 
+    @Query("UPDATE account SET displayName = :displayName")
+    suspend fun updateDisplayName(displayName: String)
+
+    @Query("UPDATE account SET activeTag = :activeTag, unlockedTags = :unlockedTags")
+    suspend fun updateAccountTags(activeTag: String?, unlockedTags: String)
+
     @Query("DELETE FROM account")
     suspend fun clearAccount()
 }
@@ -52,6 +58,12 @@ interface MessageDao {
     @Query("UPDATE messages SET reaction = :reaction WHERE id = :id")
     suspend fun updateMessageReaction(id: String, reaction: String?)
 
+    @Query("UPDATE messages SET isStarred = :isStarred WHERE id = :id")
+    suspend fun updateMessageStarred(id: String, isStarred: Boolean)
+
+    @Query("UPDATE messages SET content = :newContent, compressedContent = :encryptedPayload, isEdited = 1 WHERE id = :id")
+    suspend fun updateMessageContent(id: String, newContent: String, encryptedPayload: String)
+
     @Query("DELETE FROM messages WHERE id = :id")
     suspend fun deleteMessage(id: String)
 
@@ -70,7 +82,7 @@ interface MessageDao {
 
 @Dao
 interface ConversationDao {
-    @Query("SELECT * FROM conversations ORDER BY isOfficial DESC, lastTimestamp DESC")
+    @Query("SELECT * FROM conversations ORDER BY isOfficial DESC, isPinned DESC, lastTimestamp DESC")
     fun getAllConversations(): Flow<List<ConversationEntity>>
 
     @Query("SELECT * FROM conversations WHERE peerId = :peerId")
@@ -82,8 +94,11 @@ interface ConversationDao {
     @Query("UPDATE conversations SET isPeerOnline = :isOnline WHERE peerId = :peerId")
     suspend fun updatePeerOnlineStatus(peerId: String, isOnline: Boolean)
 
-    @Query("UPDATE conversations SET isMuted = :isMuted WHERE peerId = :peerId")
-    suspend fun updateMuted(peerId: String, isMuted: Boolean)
+    @Query("UPDATE conversations SET isMuted = :isMuted, mutedUntil = :mutedUntil WHERE peerId = :peerId")
+    suspend fun updateMuted(peerId: String, isMuted: Boolean, mutedUntil: Long? = null)
+
+    @Query("UPDATE conversations SET isPinned = :isPinned WHERE peerId = :peerId")
+    suspend fun updatePinned(peerId: String, isPinned: Boolean)
 
     @Query("UPDATE conversations SET isBlocked = :isBlocked WHERE peerId = :peerId")
     suspend fun updateBlocked(peerId: String, isBlocked: Boolean)
@@ -115,8 +130,8 @@ interface PeerDao {
     @Query("UPDATE peers SET isOnline = :isOnline, lastSeen = :timestamp WHERE peerId = :peerId")
     suspend fun updateOnlineStatus(peerId: String, isOnline: Boolean, timestamp: Long = System.currentTimeMillis())
 
-    @Query("UPDATE peers SET isMuted = :isMuted WHERE peerId = :peerId")
-    suspend fun updateMuted(peerId: String, isMuted: Boolean)
+    @Query("UPDATE peers SET isMuted = :isMuted, mutedUntil = :mutedUntil WHERE peerId = :peerId")
+    suspend fun updateMuted(peerId: String, isMuted: Boolean, mutedUntil: Long? = null)
 
     @Query("UPDATE peers SET isBlocked = :isBlocked WHERE peerId = :peerId")
     suspend fun updateBlocked(peerId: String, isBlocked: Boolean)

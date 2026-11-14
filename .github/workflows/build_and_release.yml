@@ -1,90 +1,171 @@
-name: Build and Release Clestra APK
+name: Build & Release Clestra APK
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
   workflow_dispatch:
+    inputs:
+      version_name:
+        description: 'Version Name (e.g. 1.0.1 - leave blank to auto-generate from build number)'
+        required: false
+        default: ''
+      release_title:
+        description: 'Release Title (e.g. Clestra v1.0.1 Update - optional)'
+        required: false
+        default: ''
+      custom_notes:
+        description: 'Custom Release Notes / Changelog (optional)'
+        required: false
+        default: ''
 
 permissions:
   contents: write
 
 jobs:
   build-and-release:
-    name: Build & Publish APK
+    name: Build & Auto-Release APK
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Repository
+      - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine Version & Tag
+        id: version
+        run: |
+          RUN_NUM="${{ github.run_number }}"
+          INPUT_VER="${{ github.event.inputs.version_name }}"
+
+          if [ -n "$INPUT_VER" ]; then
+            CLEAN_VER="${INPUT_VER#v}"
+            TAG="v${CLEAN_VER}"
+            VER_NAME="${CLEAN_VER}"
+          else
+            VER_NAME="1.0.${RUN_NUM}"
+            TAG="v1.0.${RUN_NUM}"
+          fi
+
+          INPUT_TITLE="${{ github.event.inputs.release_title }}"
+          if [ -n "$INPUT_TITLE" ]; then
+            TITLE="$INPUT_TITLE"
+          else
+            TITLE="Clestra $TAG"
+          fi
+
+          echo "ver_name=$VER_NAME" >> $GITHUB_OUTPUT
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "title=$TITLE" >> $GITHUB_OUTPUT
+          echo "ver_code=$RUN_NUM" >> $GITHUB_OUTPUT
+          echo "Computed Version: $VER_NAME (Tag: $TAG, Code: $RUN_NUM)"
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: '21'
           distribution: 'temurin'
-          cache: gradle
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
 
-      - name: Restore Debug Keystore
+      - name: Configure Keystore and Secrets
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY || secrets.openrouter_api || secrets.OPENROUTER_API }}
+          MONGODB_URI: ${{ secrets.MONGODB_URI || secrets.mongodb_uri }}
+          GIPHY_API_KEY: ${{ secrets.GIPHY_API_KEY || secrets.giphy_api_key }}
         run: |
+          # 1. Restore debug.keystore from base64 if present, or generate it with keytool
           if [ -f debug.keystore.base64 ]; then
-            base64 -d debug.keystore.base64 > debug.keystore
-          else
-            keytool -genkeypair -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+            base64 -d debug.keystore.base64 > debug.keystore 2>/dev/null || true
           fi
 
-      - name: Configure Build Secrets (.env)
-        env:
-          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-          MONGODB_URI: ${{ secrets.MONGODB_URI }}
-          GIPHY_API_KEY: ${{ secrets.GIPHY_API_KEY }}
-          TENOR_API_KEY: ${{ secrets.TENOR_API_KEY }}
-          KLIPY_API_KEY: ${{ secrets.KLIPY_API_KEY }}
-        run: |
+          if [ ! -s debug.keystore ]; then
+            echo "Generating valid debug.keystore for signing..."
+            keytool -genkeypair -v -keystore debug.keystore \
+              -storepass android \
+              -alias androiddebugkey \
+              -keypass android \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
+          fi
+
+          # 2. Populate .env from .env.example and inject GitHub Repository Secrets
           cp .env.example .env
-          for VAR in OPENROUTER_API_KEY MONGODB_URI GIPHY_API_KEY TENOR_API_KEY KLIPY_API_KEY; do
+          for VAR in OPENROUTER_API_KEY MONGODB_URI GIPHY_API_KEY; do
             VAL="${!VAR}"
             if [ -n "$VAL" ]; then
               grep -v "^${VAR}=" .env > .env.tmp || true
               mv .env.tmp .env
               printf '%s=%s\n' "$VAR" "$VAL" >> .env
+              echo "Linked ${VAR} secret into .env"
             fi
           done
 
       - name: Make Gradlew Executable
         run: chmod +x gradlew
 
-      - name: Build APK with Gradle
+      - name: Build Debug APK
         env:
           JAVA_TOOL_OPTIONS: "-Djava.awt.headless=true"
-        run: ./gradlew assembleDebug --no-daemon --no-configuration-cache --stacktrace
+        run: |
+          ./gradlew assembleDebug \
+            -PversionCode=${{ steps.version.outputs.ver_code }} \
+            -PversionName=${{ steps.version.outputs.ver_name }} \
+            --no-daemon \
+            --no-configuration-cache \
+            --stacktrace
 
-      - name: Verify APK Exists
-        run: ls -lh app/build/outputs/apk/debug/*.apk
+      - name: Prepare Release APK Artifact
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          APK_SRC="app/build/outputs/apk/debug/app-debug.apk"
+          APK_DEST="app/build/outputs/apk/debug/Clestra-${TAG}.apk"
 
-      - name: Upload APK Artifact
+          if [ -f "$APK_SRC" ]; then
+            cp "$APK_SRC" "$APK_DEST"
+            echo "Prepared release binary: $APK_DEST"
+          else
+            echo "Error: Output APK not found at $APK_SRC"
+            exit 1
+          fi
+
+      - name: Upload APK as Workflow Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Clestra-APK
-          path: app/build/outputs/apk/debug/*.apk
+          name: Clestra-${{ steps.version.outputs.tag }}
+          path: app/build/outputs/apk/debug/Clestra-*.apk
+          if-no-files-found: error
+          retention-days: 14
 
-      - name: Create GitHub Release and Publish APK
+      - name: Create GitHub Release and Push Tag
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.${{ github.run_number }}
-          name: Clestra Release v1.0.${{ github.run_number }}
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: ${{ steps.version.outputs.title }}
           body: |
-            ### Clestra Chat APK
-            Automated build for commit `${{ github.sha }}`.
+            ### Clestra Android Release ${{ steps.version.outputs.tag }}
 
-            - **End-to-End Encrypted Messaging** (AES-256-GCM across Direct P2P & MongoDB Relay)
-            - **Official Clestra AI Assistant** built into the app
-            - **Direct ID Chatting** (`CLS-XXXX-XXXX-XXXX`) with Mute & Block privacy controls
-            - **Cream, Copper & Charcoal Material 3 UI**
+            ${{ github.event.inputs.custom_notes || 'Automated release built and packaged directly via GitHub Actions.' }}
+
+            ---
+            #### Download & Install
+            - **Binary:** [`Clestra-${{ steps.version.outputs.tag }}.apk`](https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/Clestra-${{ steps.version.outputs.tag }}.apk)
+            - **Version:** `${{ steps.version.outputs.ver_name }}` (Build code: `${{ steps.version.outputs.ver_code }}`)
+
+            #### Highlights
+            - **Neumorphism (Soft UI) Design** with warm alabaster-cream surfaces and tactile pure-white badges
+            - **Markdown & Syntax-Highlighted Code Viewer** with collapsed inline preview, Copy, and Full-Screen reader
+            - **Rich File & Image Sharing** with custom file-type icons (APK, Code, PDF, Archives, Media) and direct image download
+            - **WhatsApp-Style Chat Controls** including Replies, Pinning, Starring, Editing, Search, Block, Delete & Timed Notification Mutes
+          files: app/build/outputs/apk/debug/Clestra-*.apk
           draft: false
           prerelease: false
-          files: app/build/outputs/apk/debug/*.apk
+          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

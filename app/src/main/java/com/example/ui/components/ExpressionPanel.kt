@@ -78,7 +78,8 @@ import com.example.ui.theme.ClestraCharcoal
 import com.example.ui.theme.ClestraCopper
 import com.example.ui.theme.ClestraCopperDark
 import com.example.ui.theme.ClestraCream
-import com.example.ui.theme.ClestraError
+import com.example.ui.theme.ClestraNeuSurface
+import com.example.ui.theme.ClestraNeuWell
 import com.example.ui.theme.ClestraSand
 import com.example.ui.theme.ClestraTextSoft
 import com.example.ui.theme.ClestraWarmBeige
@@ -118,22 +119,21 @@ fun ExpressionPanel(
 
     Surface(
         color = ClestraCream,
-        tonalElevation = 2.dp,
         modifier = modifier
             .fillMaxWidth()
             .height(328.dp)
             .testTag("expression_panel")
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            HorizontalDivider(color = ClestraSand.copy(alpha = 0.7f))
+            HorizontalDivider(color = ClestraSand.copy(alpha = 0.55f))
 
             // Top Tab Switcher: Separate Emojis | Stickers | GIFs
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color.White)
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    .background(ClestraCream)
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 ExpressionTabButton(
@@ -174,7 +174,7 @@ fun ExpressionPanel(
             val searchPlaceholder = when (activeTab) {
                 0 -> "Search emojis (e.g. heart, fire, laugh)..."
                 1 -> "Search custom & Clestra stickers..."
-                else -> "Search Tenor, GIPHY, KLIPY, Reactions..."
+                else -> "Search GIPHY, Reactions & AnimeGIFs..."
             }
 
             Row(
@@ -183,78 +183,85 @@ fun ExpressionPanel(
                     .padding(horizontal = 12.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                TextField(
-                    value = activeSearchValue,
-                    onValueChange = { next ->
-                        when (activeTab) {
-                            0 -> emojiSearch = next
-                            1 -> stickerSearch = next
-                            else -> onGifQueryChange(next)
-                        }
-                    },
-                    placeholder = {
-                        Text(
-                            text = searchPlaceholder,
-                            fontSize = 13.sp,
-                            color = ClestraTextSoft,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.Search,
-                            contentDescription = "Search",
-                            tint = ClestraTextSoft,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    },
-                    trailingIcon = {
-                        if (activeSearchValue.isNotEmpty()) {
-                            IconButton(
-                                onClick = {
-                                    when (activeTab) {
-                                        0 -> emojiSearch = ""
-                                        1 -> stickerSearch = ""
-                                        else -> onGifQueryChange("")
-                                    }
-                                }
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Close,
-                                    contentDescription = "Clear search",
-                                    tint = ClestraTextSoft,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
-                        }
-                    },
-                    singleLine = true,
-                    shape = RoundedCornerShape(14.dp),
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White,
-                        focusedIndicatorColor = Color.Transparent,
-                        unfocusedIndicatorColor = Color.Transparent,
-                        focusedTextColor = ClestraCharcoal,
-                        unfocusedTextColor = ClestraCharcoal,
-                        cursorColor = ClestraCopper
-                    ),
+                Box(
                     modifier = Modifier
                         .weight(1f)
-                        .height(48.dp)
-                        .testTag("expression_search_input")
-                )
+                        .neumorphicPressed(cornerRadius = 14.dp, containerColor = ClestraNeuWell)
+                ) {
+                    TextField(
+                        value = activeSearchValue,
+                        onValueChange = { next ->
+                            when (activeTab) {
+                                0 -> emojiSearch = next
+                                1 -> stickerSearch = next
+                                else -> onGifQueryChange(next)
+                            }
+                        },
+                        placeholder = {
+                            Text(
+                                text = searchPlaceholder,
+                                fontSize = 13.sp,
+                                color = ClestraTextSoft,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = "Search",
+                                tint = ClestraTextSoft,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        },
+                        trailingIcon = {
+                            if (activeSearchValue.isNotEmpty()) {
+                                IconButton(
+                                    onClick = {
+                                        when (activeTab) {
+                                            0 -> emojiSearch = ""
+                                            1 -> stickerSearch = ""
+                                            else -> onGifQueryChange("")
+                                        }
+                                    }
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "Clear search",
+                                        tint = ClestraTextSoft,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+                        },
+                        singleLine = true,
+                        shape = RoundedCornerShape(14.dp),
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent,
+                            focusedIndicatorColor = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent,
+                            focusedTextColor = ClestraCharcoal,
+                            unfocusedTextColor = ClestraCharcoal,
+                            cursorColor = ClestraCopper
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                            .testTag("expression_search_input")
+                    )
+                }
 
                 if (activeTab == 0) {
-                    Spacer(modifier = Modifier.width(6.dp))
-                    IconButton(
-                        onClick = onBackspaceEmoji,
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Box(
                         modifier = Modifier
                             .size(44.dp)
+                            .neumorphicRaised(cornerRadius = 12.dp, elevation = 3.dp, containerColor = ClestraNeuSurface)
                             .clip(RoundedCornerShape(12.dp))
-                            .background(Color.White)
-                            .testTag("emoji_backspace_button")
+                            .clickable { onBackspaceEmoji() }
+                            .testTag("emoji_backspace_button"),
+                        contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.Backspace,
@@ -322,12 +329,16 @@ private fun ExpressionTabButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Surface(
-        shape = RoundedCornerShape(12.dp),
-        color = if (selected) ClestraBubbleSent else ClestraCream,
-        border = if (selected) BorderStroke(1.dp, ClestraCopper.copy(alpha = 0.4f)) else null,
+    val depthModifier = if (selected) {
+        Modifier.neumorphicPressed(cornerRadius = 12.dp, containerColor = ClestraBubbleSent.copy(alpha = 0.65f))
+    } else {
+        Modifier.neumorphicRaised(cornerRadius = 12.dp, elevation = 3.dp, containerColor = ClestraNeuSurface)
+    }
+
+    Box(
         modifier = modifier
             .height(38.dp)
+            .then(depthModifier)
             .clip(RoundedCornerShape(12.dp))
             .clickable { onClick() }
     ) {
@@ -624,7 +635,7 @@ private fun GifsProviderArea(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = notice ?: "Search for GIFs across Tenor, GIPHY, KLIPY, and Reactions.",
+                        text = "Search for GIFs across GIPHY, Reactions, and AnimeGIFs.",
                         color = ClestraTextSoft,
                         fontSize = 13.sp,
                         textAlign = TextAlign.Center

@@ -18,7 +18,7 @@ import com.example.data.model.UserAccountEntity
         PeerEntity::class,
         CustomStickerEntity::class
     ],
-    version = 6,
+    version = 8,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

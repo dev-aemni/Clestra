@@ -2,8 +2,6 @@ package com.example.ui.screens
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,11 +26,8 @@ import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.NotificationsOff
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
@@ -60,15 +55,26 @@ import com.example.R
 import com.example.data.model.PeerEntity
 import com.example.ui.ChatViewModel
 import com.example.ui.components.ClestraPillInput
+import com.example.ui.components.ClestraWallpaperBox
+import com.example.ui.components.MuteDurationDialog
+import com.example.ui.components.NeumorphicButton
+import com.example.ui.components.NeumorphicCard
+import com.example.ui.components.SoftUiBadgeTag
+import com.example.ui.components.formatMuteRemaining
+import com.example.ui.components.neumorphicRaised
+import com.example.ui.components.peerAvatarInk
+import com.example.ui.components.peerAvatarTint
 import com.example.ui.theme.ClestraBubbleSent
 import com.example.ui.theme.ClestraCharcoal
 import com.example.ui.theme.ClestraCopper
 import com.example.ui.theme.ClestraCopperDark
 import com.example.ui.theme.ClestraCream
 import com.example.ui.theme.ClestraError
+import com.example.ui.theme.ClestraNeuSurface
+import com.example.ui.theme.ClestraNeuWell
 import com.example.ui.theme.ClestraOnline
-import com.example.ui.theme.ClestraSand
 import com.example.ui.theme.ClestraTextSoft
+import com.example.ui.theme.ClestraWarmBeige
 
 @Composable
 fun ContactsScreen(
@@ -79,109 +85,123 @@ fun ContactsScreen(
     var peerIdInput by remember { mutableStateOf("") }
     var displayNameInput by remember { mutableStateOf("") }
     var statusError by remember { mutableStateOf<String?>(null) }
+    var muteDialogPeer by remember { mutableStateOf<PeerEntity?>(null) }
     val peers by viewModel.peers.collectAsState()
 
-    Column(
+    ClestraWallpaperBox(
+        intensePattern = false,
         modifier = modifier
-            .fillMaxSize()
-            .background(ClestraCream)
-            .statusBarsPadding()
-            .padding(horizontal = 20.dp, vertical = 20.dp)
     ) {
-        Text(
-            text = "Direct Chat",
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold,
-            color = ClestraCharcoal
-        )
-
-        Spacer(modifier = Modifier.height(6.dp))
-
-        Text(
-            text = "Enter any user's Clestra ID to start chatting immediately",
-            fontSize = 14.sp,
-            color = ClestraTextSoft
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        ClestraPillInput(
-            value = peerIdInput,
-            onValueChange = {
-                peerIdInput = it.uppercase()
-                statusError = null
-            },
-            hint = "Enter Clestra ID (e.g. CLS-...)",
-            modifier = Modifier.testTag("direct_chat_id_input")
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        ClestraPillInput(
-            value = displayNameInput,
-            onValueChange = { displayNameInput = it },
-            hint = "Nickname (Optional)",
-            modifier = Modifier.testTag("direct_chat_name_input")
-        )
-
-        if (statusError != null) {
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = statusError ?: "",
-                color = ClestraError,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Medium
-            )
-        }
-
-        Spacer(modifier = Modifier.height(10.dp))
-
-        Button(
-            onClick = {
-                val trimmed = peerIdInput.trim()
-                if (trimmed.isBlank()) {
-                    statusError = "Please enter a user's Clestra ID."
-                } else {
-                    viewModel.startDirectChatById(trimmed, displayNameInput) { peerId ->
-                        peerIdInput = ""
-                        displayNameInput = ""
-                        onChatWithPeer(peerId)
-                    }
-                }
-            },
-            shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = ClestraCopper,
-                contentColor = Color.White
-            ),
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .padding(top = 14.dp)
+        ) {
+        NeumorphicCard(
+            cornerRadius = 24.dp,
+            elevation = 6.dp,
+            containerColor = Color.White,
+            contentPadding = PaddingValues(18.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .height(50.dp)
-                .testTag("start_direct_chat_button")
+                .padding(horizontal = 16.dp)
         ) {
-            Text(
-                text = "Start Chat",
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold
-            )
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = "Direct Chat",
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = ClestraCharcoal
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Text(
+                    text = "Enter any user's Clestra ID to start chatting immediately",
+                    fontSize = 13.sp,
+                    color = ClestraTextSoft
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                ClestraPillInput(
+                    value = peerIdInput,
+                    onValueChange = {
+                        peerIdInput = it.uppercase()
+                        statusError = null
+                    },
+                    hint = "Enter Clestra ID (e.g. CLS-...)",
+                    modifier = Modifier.testTag("direct_chat_id_input")
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                ClestraPillInput(
+                    value = displayNameInput,
+                    onValueChange = { displayNameInput = it },
+                    hint = "Nickname (Optional)",
+                    modifier = Modifier.testTag("direct_chat_name_input")
+                )
+
+                if (statusError != null) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = statusError ?: "",
+                        color = ClestraError,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                NeumorphicButton(
+                    onClick = {
+                        val trimmed = peerIdInput.trim()
+                        if (trimmed.isBlank()) {
+                            statusError = "Please enter a user's Clestra ID."
+                        } else {
+                            viewModel.startDirectChatById(trimmed, displayNameInput) { peerId ->
+                                peerIdInput = ""
+                                displayNameInput = ""
+                                onChatWithPeer(peerId)
+                            }
+                        }
+                    },
+                    cornerRadius = 14.dp,
+                    containerColor = ClestraCopper,
+                    contentPadding = PaddingValues(vertical = 14.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp)
+                        .testTag("start_direct_chat_button")
+                ) {
+                    Text(
+                        text = "Start Chat",
+                        color = Color.White,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
-        HorizontalDivider(color = ClestraSand.copy(alpha = 0.6f))
-        Spacer(modifier = Modifier.height(14.dp))
+        Spacer(modifier = Modifier.height(18.dp))
 
         Text(
             text = "Contacts & Privacy Controls",
             fontSize = 16.sp,
             fontWeight = FontWeight.Bold,
-            color = ClestraCharcoal
+            color = ClestraCharcoal,
+            modifier = Modifier.padding(horizontal = 20.dp)
         )
 
         Spacer(modifier = Modifier.height(8.dp))
 
         LazyColumn(
-            contentPadding = PaddingValues(vertical = 6.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 112.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
@@ -190,7 +210,8 @@ fun ContactsScreen(
                 ContactControlItem(
                     peer = peer,
                     onToggleOnline = { viewModel.togglePeerOnline(peer.peerId) },
-                    onToggleMute = { viewModel.toggleMutePeer(peer.peerId) },
+                    onOpenMuteOptions = { muteDialogPeer = peer },
+                    onUnmute = { viewModel.unmutePeer(peer.peerId) },
                     onToggleBlock = { viewModel.toggleBlockPeer(peer.peerId) },
                     onDelete = { viewModel.deletePeerAndConversation(peer.peerId) },
                     onChat = { onChatWithPeer(peer.peerId) }
@@ -198,42 +219,57 @@ fun ContactsScreen(
             }
         }
     }
+    }
+
+    muteDialogPeer?.let { peer ->
+        MuteDurationDialog(
+            targetName = peer.displayName,
+            isCurrentlyMuted = peer.isMuted,
+            onDismiss = { muteDialogPeer = null },
+            onSelectDuration = { duration -> viewModel.mutePeer(peer.peerId, duration) },
+            onUnmute = { viewModel.unmutePeer(peer.peerId) }
+        )
+    }
 }
 
 @Composable
 private fun ContactControlItem(
     peer: PeerEntity,
     onToggleOnline: () -> Unit,
-    onToggleMute: () -> Unit,
+    onOpenMuteOptions: () -> Unit,
+    onUnmute: () -> Unit,
     onToggleBlock: () -> Unit,
     onDelete: () -> Unit,
     onChat: () -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
+    val muteLabel = remember(peer.isMuted, peer.mutedUntil) {
+        formatMuteRemaining(peer.isMuted, peer.mutedUntil)
+    }
 
-    Surface(
-        shape = RoundedCornerShape(16.dp),
-        color = Color.White,
-        shadowElevation = 1.dp,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .clickable { onChat() }
+    NeumorphicCard(
+        cornerRadius = 20.dp,
+        elevation = 5.dp,
+        containerColor = if (peer.isOfficial) ClestraWarmBeige else Color.White,
+        accentBorderColor = if (peer.isOfficial) Color.White else null,
+        contentPadding = PaddingValues(14.dp),
+        onClick = onChat,
+        modifier = Modifier.fillMaxWidth()
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(14.dp),
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            val avatarBg = if (peer.isOfficial) ClestraBubbleSent else peerAvatarTint(peer.peerId)
+            val avatarInk = if (peer.isOfficial) ClestraCharcoal else peerAvatarInk(peer.peerId)
             Box(
                 modifier = Modifier
-                    .size(44.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(ClestraBubbleSent)
-                    .then(
-                        if (peer.isOfficial) Modifier.border(1.5.dp, ClestraCopper, RoundedCornerShape(14.dp))
-                        else Modifier
+                    .size(46.dp)
+                    .neumorphicRaised(
+                        cornerRadius = 14.dp,
+                        elevation = 3.dp,
+                        containerColor = avatarBg,
+                        accentBorderColor = Color.White
                     ),
                 contentAlignment = Alignment.Center
             ) {
@@ -242,12 +278,14 @@ private fun ContactControlItem(
                         painter = painterResource(id = R.drawable.logo),
                         contentDescription = "Clestra Official",
                         contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(RoundedCornerShape(14.dp))
                     )
                 } else {
                     Text(
                         text = peer.displayName.firstOrNull()?.uppercase() ?: "?",
-                        color = ClestraCharcoal,
+                        color = avatarInk,
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -268,19 +306,14 @@ private fun ContactControlItem(
                         Spacer(modifier = Modifier.width(6.dp))
                         OfficialTag()
                     }
-                    if (peer.isMuted) {
+                    if (muteLabel != null) {
                         Spacer(modifier = Modifier.width(6.dp))
-                        Icon(
-                            imageVector = Icons.Default.NotificationsOff,
-                            contentDescription = "Muted",
-                            tint = ClestraTextSoft,
-                            modifier = Modifier.size(14.dp)
-                        )
+                        SoftUiBadgeTag(label = muteLabel.uppercase())
                     }
                     if (peer.isBlocked) {
                         Spacer(modifier = Modifier.width(6.dp))
                         Surface(
-                            shape = RoundedCornerShape(6.dp),
+                            shape = RoundedCornerShape(50),
                             color = ClestraError.copy(alpha = 0.14f)
                         ) {
                             Text(
@@ -288,7 +321,7 @@ private fun ContactControlItem(
                                 color = ClestraError,
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
                             )
                         }
                     }
@@ -312,7 +345,7 @@ private fun ContactControlItem(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = if (peer.isOnline) "P2P Online" else "Offline • Relay",
+                            text = if (peer.isOnline) "Direct Online" else "Offline • Relay",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = if (peer.isOnline) ClestraOnline else ClestraCopperDark
@@ -328,8 +361,8 @@ private fun ContactControlItem(
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = Color.White,
                         checkedTrackColor = ClestraOnline,
-                        uncheckedThumbColor = Color.White,
-                        uncheckedTrackColor = ClestraCopper
+                        uncheckedThumbColor = ClestraNeuSurface,
+                        uncheckedTrackColor = ClestraNeuWell
                     )
                 )
             }
@@ -356,16 +389,37 @@ private fun ContactControlItem(
                     onDismissRequest = { showMenu = false }
                 ) {
                     DropdownMenuItem(
-                        text = { Text(if (peer.isMuted) "Unmute Notifications" else "Mute Notifications") },
+                        text = { Text("Open Chat") },
                         leadingIcon = {
-                            Icon(
-                                imageVector = if (peer.isMuted) Icons.Default.NotificationsActive else Icons.Default.NotificationsOff,
-                                contentDescription = null
-                            )
+                            Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = null)
                         },
                         onClick = {
-                            onToggleMute()
                             showMenu = false
+                            onChat()
+                        }
+                    )
+
+                    if (peer.isMuted) {
+                        DropdownMenuItem(
+                            text = { Text("Unmute Notifications") },
+                            leadingIcon = {
+                                Icon(Icons.Default.NotificationsActive, contentDescription = null)
+                            },
+                            onClick = {
+                                onUnmute()
+                                showMenu = false
+                            }
+                        )
+                    }
+
+                    DropdownMenuItem(
+                        text = { Text(if (peer.isMuted) "Change Mute Timer..." else "Mute Notifications...") },
+                        leadingIcon = {
+                            Icon(Icons.Default.NotificationsOff, contentDescription = null)
+                        },
+                        onClick = {
+                            showMenu = false
+                            onOpenMuteOptions()
                         }
                     )
 
@@ -386,7 +440,7 @@ private fun ContactControlItem(
                         )
 
                         DropdownMenuItem(
-                            text = { Text("Remove Contact", color = ClestraError) },
+                            text = { Text("Delete Contact & Chat", color = ClestraError) },
                             leadingIcon = {
                                 Icon(
                                     imageVector = Icons.Default.DeleteOutline,
@@ -408,18 +462,8 @@ private fun ContactControlItem(
 
 @Composable
 fun OfficialTag(modifier: Modifier = Modifier) {
-    Surface(
-        shape = RoundedCornerShape(6.dp),
-        color = ClestraCopper,
+    SoftUiBadgeTag(
+        label = "OFFICIAL",
         modifier = modifier
-    ) {
-        Text(
-            text = "OFFICIAL",
-            color = Color.White,
-            fontSize = 9.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 0.6.sp,
-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-        )
-    }
+    )
 }

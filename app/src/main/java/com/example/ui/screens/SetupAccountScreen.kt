@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,9 +17,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
@@ -42,11 +40,17 @@ import com.example.R
 import com.example.data.model.ClestraIdGenerator
 import com.example.ui.ChatViewModel
 import com.example.ui.components.ClestraPillInput
+import com.example.ui.components.NeumorphicButton
+import com.example.ui.components.NeumorphicCard
+import com.example.ui.components.neumorphicPressed
+import com.example.ui.components.neumorphicRaised
 import com.example.ui.theme.ClestraBubbleSent
 import com.example.ui.theme.ClestraCharcoal
 import com.example.ui.theme.ClestraCopper
 import com.example.ui.theme.ClestraCream
 import com.example.ui.theme.ClestraError
+import com.example.ui.theme.ClestraNeuSurface
+import com.example.ui.theme.ClestraNeuWell
 import com.example.ui.theme.ClestraTextSoft
 
 @Composable
@@ -82,20 +86,32 @@ fun SetupAccountScreen(
                 .widthIn(max = 480.dp)
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(32.dp),
+                .padding(horizontal = 24.dp, vertical = 28.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Image(
-                painter = painterResource(id = R.drawable.logo),
-                contentDescription = "Clestra Logo",
-                contentScale = ContentScale.Crop,
+            Box(
                 modifier = Modifier
-                    .size(84.dp)
-                    .clip(RoundedCornerShape(22.dp))
-            )
+                    .size(96.dp)
+                    .neumorphicRaised(
+                        cornerRadius = 26.dp,
+                        elevation = 7.dp,
+                        containerColor = ClestraBubbleSent
+                    )
+                    .padding(6.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Image(
+                    painter = painterResource(id = R.drawable.logo),
+                    contentDescription = "Clestra Logo",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(RoundedCornerShape(20.dp))
+                )
+            }
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             Text(
                 text = "Clestra",
@@ -113,117 +129,127 @@ fun SetupAccountScreen(
                 textAlign = TextAlign.Center
             )
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(26.dp))
 
-            ClestraPillInput(
-                value = name,
-                onValueChange = {
-                    name = it
-                    errorMessage = null
-                },
-                hint = "Display Name",
-                modifier = Modifier.testTag("setup_name_input")
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            ClestraPillInput(
-                value = password,
-                onValueChange = {
-                    password = it
-                    errorMessage = null
-                },
-                hint = "Account Password",
-                isPassword = true,
-                passwordVisible = passwordVisible,
-                onTogglePasswordVisible = { passwordVisible = !passwordVisible },
-                modifier = Modifier.testTag("setup_password_input")
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            ClestraPillInput(
-                value = confirmPassword,
-                onValueChange = {
-                    confirmPassword = it
-                    errorMessage = null
-                },
-                hint = "Confirm Password",
-                isPassword = true,
-                passwordVisible = passwordVisible,
-                modifier = Modifier.testTag("setup_confirm_password_input")
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Surface(
-                shape = RoundedCornerShape(16.dp),
-                color = ClestraBubbleSent.copy(alpha = 0.65f),
+            NeumorphicCard(
+                cornerRadius = 24.dp,
+                elevation = 6.dp,
+                containerColor = ClestraNeuSurface,
+                contentPadding = PaddingValues(20.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Column(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = "Your Permanent Clestra ID",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = ClestraTextSoft
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    ClestraPillInput(
+                        value = name,
+                        onValueChange = {
+                            name = it
+                            errorMessage = null
+                        },
+                        hint = "Display Name",
+                        modifier = Modifier.testTag("setup_name_input")
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = previewId,
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = ClestraCharcoal
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    ClestraPillInput(
+                        value = password,
+                        onValueChange = {
+                            password = it
+                            errorMessage = null
+                        },
+                        hint = "Account Password",
+                        isPassword = true,
+                        passwordVisible = passwordVisible,
+                        onTogglePasswordVisible = { passwordVisible = !passwordVisible },
+                        modifier = Modifier.testTag("setup_password_input")
                     )
-                }
-            }
 
-            if (errorMessage != null) {
-                Spacer(modifier = Modifier.height(10.dp))
-                Text(
-                    text = errorMessage ?: "",
-                    color = ClestraError,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    textAlign = TextAlign.Center
-                )
-            }
+                    Spacer(modifier = Modifier.height(12.dp))
 
-            Spacer(modifier = Modifier.height(24.dp))
+                    ClestraPillInput(
+                        value = confirmPassword,
+                        onValueChange = {
+                            confirmPassword = it
+                            errorMessage = null
+                        },
+                        hint = "Confirm Password",
+                        isPassword = true,
+                        passwordVisible = passwordVisible,
+                        modifier = Modifier.testTag("setup_confirm_password_input")
+                    )
 
-            Button(
-                onClick = {
-                    when {
-                        name.isBlank() -> errorMessage = "Please enter your display name."
-                        password.length < 4 -> errorMessage = "Password must be at least 4 characters."
-                        password != confirmPassword -> errorMessage = "Passwords do not match."
-                        else -> {
-                            viewModel.setupAccount(
-                                name = name.trim(),
-                                password = password
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .neumorphicPressed(
+                                cornerRadius = 16.dp,
+                                containerColor = ClestraNeuWell
                             )
-                        }
+                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "Your Permanent Clestra ID",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = ClestraTextSoft
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = previewId,
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = ClestraCharcoal
+                        )
                     }
-                },
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = ClestraCopper,
-                    contentColor = Color.White
-                ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp)
-                    .testTag("complete_setup_button")
-            ) {
-                Text(
-                    text = "Generate ID & Enter Clestra",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
-                )
+
+                    if (errorMessage != null) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = errorMessage ?: "",
+                            color = ClestraError,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    NeumorphicButton(
+                        onClick = {
+                            when {
+                                name.isBlank() -> errorMessage = "Please enter your display name."
+                                password.length < 4 -> errorMessage = "Password must be at least 4 characters."
+                                password != confirmPassword -> errorMessage = "Passwords do not match."
+                                else -> {
+                                    viewModel.setupAccount(
+                                        name = name.trim(),
+                                        password = password
+                                    )
+                                }
+                            }
+                        },
+                        cornerRadius = 16.dp,
+                        containerColor = ClestraCopper,
+                        contentPadding = PaddingValues(vertical = 16.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp)
+                            .testTag("complete_setup_button")
+                    ) {
+                        Text(
+                            text = "Generate ID & Enter Clestra",
+                            color = Color.White,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
             }
         }
     }

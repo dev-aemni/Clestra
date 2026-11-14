@@ -52,8 +52,8 @@ object StickerStorageUtils {
     val builtInStickers = listOf(
         BuiltInStickerMeta("stk_builtin_wave", "builtin://clestra_wave", "Wave Hello Hi", "👋", "HEY!", 0xFFF5D5B8),
         BuiltInStickerMeta("stk_builtin_love", "builtin://clestra_love", "Love Heart Peach", "🧡", "LOVE", 0xFFFFE0CE),
-        BuiltInStickerMeta("stk_builtin_lock", "builtin://clestra_lock", "Encrypted Lock Safe", "🔐", "E2EE", 0xFF2C2018),
-        BuiltInStickerMeta("stk_builtin_bolt", "builtin://clestra_bolt", "Fast P2P Direct Bolt", "⚡", "P2P!", 0xFFC4763A),
+        BuiltInStickerMeta("stk_builtin_lock", "builtin://clestra_lock", "Private Lock Safe", "🔐", "SAFE", 0xFF2C2018),
+        BuiltInStickerMeta("stk_builtin_bolt", "builtin://clestra_bolt", "Fast P2P Direct Bolt", "⚡", "FAST!", 0xFFC4763A),
         BuiltInStickerMeta("stk_builtin_party", "builtin://clestra_party", "Party Celebrate Congrats", "🎉", "WOO!", 0xFFF2EAE0),
         BuiltInStickerMeta("stk_builtin_lol", "builtin://clestra_lol", "Laugh Funny LOL", "😂", "LOL", 0xFFFFE8B8),
         BuiltInStickerMeta("stk_builtin_coffee", "builtin://clestra_coffee", "Coffee Morning Vibe", "☕", "CHILL", 0xFFE8D5C0),
@@ -84,10 +84,6 @@ object StickerStorageUtils {
         return builtInStickers.firstOrNull { it.uri == uri }
     }
 
-    /**
-     * Decodes a picked image URI, center-crops it to 512x512, applies the selected sticker cutout/border style,
-     * and saves it as a local PNG file so it persists indefinitely without URI permission loss.
-     */
     fun createCustomStickerFile(
         context: Context,
         sourceUri: Uri,
@@ -154,6 +150,10 @@ object StickerStorageUtils {
     }
 }
 
+/**
+ * Full standard mobile-keyboard Emoji catalog spanning Smileys, People, Animals, Food,
+ * Travel, Activities, Objects, Symbols, and Flags (over 1,000 searchable Unicode emojis).
+ */
 object EmojiCatalog {
     data class EmojiEntry(
         val symbol: String,
@@ -164,102 +164,274 @@ object EmojiCatalog {
     val categories = listOf(
         "All",
         "Smileys",
-        "Hearts",
-        "Gestures",
-        "Party",
-        "Nature",
-        "Food"
+        "People",
+        "Animals",
+        "Food",
+        "Travel",
+        "Activities",
+        "Objects",
+        "Symbols",
+        "Flags"
     )
 
-    val allEmojis = listOf(
-        // Smileys
-        EmojiEntry("😀", "grin happy smile face", "Smileys"),
-        EmojiEntry("😂", "laugh cry funny lol joy", "Smileys"),
-        EmojiEntry("🥹", "teary happy proud cute", "Smileys"),
-        EmojiEntry("😊", "blush warm smile happy", "Smileys"),
-        EmojiEntry("😍", "heart eyes love crush", "Smileys"),
-        EmojiEntry("🤩", "star struck wow excited", "Smileys"),
-        EmojiEntry("😘", "kiss love blow", "Smileys"),
-        EmojiEntry("😜", "wink tongue silly playful", "Smileys"),
-        EmojiEntry("😎", "cool sunglasses chill", "Smileys"),
-        EmojiEntry("🥳", "party celebrate birthday", "Smileys"),
-        EmojiEntry("🤔", "think hmm wonder", "Smileys"),
-        EmojiEntry("🤫", "shh secret quiet", "Smileys"),
-        EmojiEntry("🤗", "hug warm cuddle", "Smileys"),
-        EmojiEntry("😴", "sleep tired night zzz", "Smileys"),
-        EmojiEntry("😭", "cry sad sob", "Smileys"),
-        EmojiEntry("🤯", "mind blown shock wow", "Smileys"),
-        EmojiEntry("😇", "angel innocent halo", "Smileys"),
-        EmojiEntry("😏", "smirk sly", "Smileys"),
-        EmojiEntry("🫡", "salute respect yes", "Smileys"),
-        EmojiEntry("🫠", "melt shy oops", "Smileys"),
-
-        // Hearts
-        EmojiEntry("❤️", "red heart love", "Hearts"),
-        EmojiEntry("🧡", "orange copper heart clestra", "Hearts"),
-        EmojiEntry("💛", "yellow heart gold", "Hearts"),
-        EmojiEntry("💚", "green heart", "Hearts"),
-        EmojiEntry("🩵", "blue heart light", "Hearts"),
-        EmojiEntry("💜", "purple heart", "Hearts"),
-        EmojiEntry("🤎", "brown heart warm", "Hearts"),
-        EmojiEntry("🤍", "white heart pure", "Hearts"),
-        EmojiEntry("💖", "sparkle heart love", "Hearts"),
-        EmojiEntry("💕", "two hearts love", "Hearts"),
-        EmojiEntry("🫶", "heart hands love", "Hearts"),
-        EmojiEntry("💯", "100 percent facts real", "Hearts"),
-
-        // Gestures
-        EmojiEntry("👋", "wave hi hello bye", "Gestures"),
-        EmojiEntry("👍", "thumbs up yes ok good", "Gestures"),
-        EmojiEntry("👎", "thumbs down no bad", "Gestures"),
-        EmojiEntry("👏", "clap applause bravo", "Gestures"),
-        EmojiEntry("🙌", "hands up praise yay", "Gestures"),
-        EmojiEntry("🤝", "handshake deal agree", "Gestures"),
-        EmojiEntry("🙏", "please thanks pray namaste", "Gestures"),
-        EmojiEntry("✌️", "peace victory two", "Gestures"),
-        EmojiEntry("🤞", "fingers crossed luck", "Gestures"),
-        EmojiEntry("💪", "muscle strong flex", "Gestures"),
-        EmojiEntry("👀", "eyes look see watch", "Gestures"),
-        EmojiEntry("✍️", "write note sign", "Gestures"),
-
-        // Party & Tech
-        EmojiEntry("🎉", "party popper celebrate", "Party"),
-        EmojiEntry("🎊", "confetti celebration", "Party"),
-        EmojiEntry("🔥", "fire lit hot flame", "Party"),
-        EmojiEntry("⚡", "bolt lightning fast p2p", "Party"),
-        EmojiEntry("✨", "sparkles magic clean", "Party"),
-        EmojiEntry("🔐", "lock key encrypted secure", "Party"),
-        EmojiEntry("🚀", "rocket launch fast", "Party"),
-        EmojiEntry("🎵", "music note song", "Party"),
-        EmojiEntry("🏆", "trophy win champion", "Party"),
-        EmojiEntry("🎯", "target bullseye goal", "Party"),
-        EmojiEntry("💬", "chat bubble message", "Party"),
-        EmojiEntry("📸", "camera photo pic", "Party"),
-
-        // Nature
-        EmojiEntry("🍑", "peach clestra fruit", "Nature"),
-        EmojiEntry("🌸", "cherry blossom flower", "Nature"),
-        EmojiEntry("🌻", "sunflower sun", "Nature"),
-        EmojiEntry("🌿", "leaf plant green", "Nature"),
-        EmojiEntry("🌈", "rainbow", "Nature"),
-        EmojiEntry("☀️", "sun bright sunny", "Nature"),
-        EmojiEntry("🌙", "moon night crescent", "Nature"),
-        EmojiEntry("⭐", "star favorite", "Nature"),
-        EmojiEntry("🐱", "cat kitty meow", "Nature"),
-        EmojiEntry("🐶", "dog puppy woof", "Nature"),
-        EmojiEntry("🦋", "butterfly", "Nature"),
-        EmojiEntry("🐾", "paw pet", "Nature"),
-
-        // Food
-        EmojiEntry("☕", "coffee espresso morning", "Food"),
-        EmojiEntry("🧋", "boba tea bubble", "Food"),
-        EmojiEntry("🍕", "pizza slice", "Food"),
-        EmojiEntry("🍔", "burger food", "Food"),
-        EmojiEntry("🍩", "donut sweet", "Food"),
-        EmojiEntry("🍰", "cake dessert birthday", "Food"),
-        EmojiEntry("🍓", "strawberry berry", "Food"),
-        EmojiEntry("🥑", "avocado", "Food"),
-        EmojiEntry("🍜", "ramen noodles", "Food"),
-        EmojiEntry("🍪", "cookie snack", "Food")
+    private val keywordOverrides = mapOf(
+        "😀" to "grin happy smile face",
+        "😃" to "happy big smile",
+        "😄" to "laugh smile joy",
+        "😁" to "beam grin teeth",
+        "😆" to "haha lol xd laugh",
+        "😅" to "sweat nervous relief",
+        "🤣" to "rofl lol funny laughing",
+        "😂" to "lol tears joy funny",
+        "🙂" to "slight smile ok",
+        "🙃" to "upside down silly",
+        "😉" to "wink flirt",
+        "😊" to "blush warm happy cute",
+        "😇" to "angel halo innocent",
+        "🥰" to "love hearts adore",
+        "😍" to "heart eyes love crush",
+        "🤩" to "star struck excited wow",
+        "😘" to "kiss love heart",
+        "😜" to "wink tongue playful",
+        "🤪" to "crazy goofy wild",
+        "😎" to "cool sunglasses chill",
+        "🥳" to "party birthday celebrate",
+        "🤔" to "think wonder hmm",
+        "🤫" to "quiet shh secret",
+        "🤗" to "hug cozy",
+        "😭" to "cry sob sad tears",
+        "😢" to "sad tear",
+        "😡" to "angry mad rage",
+        "🤬" to "angry swear furious",
+        "🤯" to "mind blown shock wow",
+        "😴" to "sleep zzz tired",
+        "🤮" to "sick vomit",
+        "🤧" to "sneeze cold",
+        "🫡" to "salute respect yes",
+        "🫠" to "melting shy",
+        "❤️" to "red heart love",
+        "🧡" to "orange copper heart clestra",
+        "💛" to "yellow gold heart",
+        "💚" to "green heart",
+        "💙" to "blue heart",
+        "🩵" to "light blue heart",
+        "💜" to "purple heart",
+        "🖤" to "black heart",
+        "🤍" to "white heart",
+        "🤎" to "brown heart",
+        "💔" to "broken heart sad",
+        "💖" to "sparkle heart love",
+        "💕" to "two hearts love",
+        "💯" to "100 percent facts",
+        "👋" to "wave hi hello bye",
+        "👍" to "thumbs up yes ok good like",
+        "👎" to "thumbs down no dislike",
+        "👏" to "clap applause bravo",
+        "🙌" to "celebrate hands yay",
+        "🤝" to "handshake deal agree",
+        "🙏" to "please thanks pray",
+        "✌️" to "peace two victory",
+        "🤞" to "luck crossed fingers",
+        "🫶" to "heart hands love",
+        "💪" to "muscle strong flex workout",
+        "🔥" to "fire lit hot flame",
+        "⚡" to "bolt lightning fast electric",
+        "✨" to "sparkles magic shine",
+        "🎉" to "party popper celebrate confetti",
+        "🚀" to "rocket launch space",
+        "🍑" to "peach fruit clestra",
+        "☕" to "coffee tea morning espresso",
+        "🍕" to "pizza food",
+        "🍔" to "burger food",
+        "🔐" to "lock key security encrypted",
+        "💻" to "laptop computer code programming",
+        "📱" to "phone mobile device"
     )
+
+    private fun cp(codePoint: Int): String = String(Character.toChars(codePoint))
+
+    private fun expandRange(start: Int, end: Int, category: String, tag: String): List<EmojiEntry> {
+        val list = ArrayList<EmojiEntry>(end - start + 1)
+        for (c in start..end) {
+            if (!Character.isDefined(c)) continue
+            val sym = cp(c)
+            val nameHint = runCatching { Character.getName(c)?.lowercase() ?: "" }.getOrDefault("")
+            val kw = buildString {
+                keywordOverrides[sym]?.let { append(it).append(' ') }
+                append(nameHint).append(' ').append(tag).append(' ').append(category)
+            }
+            list.add(EmojiEntry(sym, kw, category))
+        }
+        return list
+    }
+
+    private fun listFromSymbols(category: String, tag: String, symbols: List<String>): List<EmojiEntry> {
+        return symbols.map { sym ->
+            val firstCp = sym.codePointAt(0)
+            val nameHint = runCatching { Character.getName(firstCp)?.lowercase() ?: "" }.getOrDefault("")
+            val kw = buildString {
+                keywordOverrides[sym]?.let { append(it).append(' ') }
+                append(nameHint).append(' ').append(tag).append(' ').append(category)
+            }
+            EmojiEntry(sym, kw, category)
+        }
+    }
+
+    val allEmojis: List<EmojiEntry> by lazy {
+        buildList {
+            // Smileys & Emotion
+            addAll(expandRange(0x1F600, 0x1F644, "Smileys", "face emotion expression"))
+            addAll(expandRange(0x1F910, 0x1F92F, "Smileys", "face emotion expression"))
+            addAll(expandRange(0x1F970, 0x1F97A, "Smileys", "face love party emotion"))
+            addAll(
+                listFromSymbols(
+                    "Smileys",
+                    "face heart emotion",
+                    listOf(
+                        "🫠", "🫢", "🫣", "🫡", "🫥", "🫤", "🥹", "😮‍💨", "😵‍💫", "😶‍🌫️",
+                        "😈", "👿", "💀", "☠️", "💩", "🤡", "👹", "👺", "👻", "👽", "👾", "🤖",
+                        "😺", "😸", "😹", "😻", "😼", "😽", "🙀", "😿", "😾",
+                        "🙈", "🙉", "🙊",
+                        "💋", "💌", "💘", "💝", "💖", "💗", "💓", "💞", "💕", "💟", "❣️", "💔",
+                        "❤️‍🔥", "❤️‍🩹", "❤️", "🩷", "🧡", "💛", "💚", "💙", "🩵", "💜", "🤎", "🖤", "🩶", "🤍",
+                        "💯", "💢", "💥", "💫", "💦", "💨", "🕳️", "💬", "👁️‍🗨️", "🗨️", "🗯️", "💭", "💤"
+                    )
+                )
+            )
+
+            // People & Hands & Body
+            addAll(
+                listFromSymbols(
+                    "People",
+                    "hand gesture body people person",
+                    listOf(
+                        "👋", "🤚", "🖐️", "✋", "🖖", "🫱", "🫲", "🫳", "🫴", "👌", "🤌", "🤏",
+                        "✌️", "🤞", "🫰", "🤟", "🤘", "🤙", "👈", "👉", "👆", "🖕", "👇", "☝️", "🫵",
+                        "👍", "👎", "✊", "👊", "🤛", "🤜", "👏", "🙌", "🫶", "👐", "🤲", "🤝", "🙏",
+                        "✍️", "💅", "🤳", "💪", "🦾", "🦿", "🦵", "🦶", "👂", "🦻", "👃", "🧠", "🫀", "🫁", "🦷", "🦴", "👀", "👁️", "👅", "👄", "🫦",
+                        "👶", "🧒", "👦", "👧", "🧑", "👱", "👨", "🧔", "👩", "🧓", "👴", "👵",
+                        "🙍", "🙎", "🙅", "🙆", "💁", "🙋", "🧏", "🙇", "🤦", "🤷",
+                        "👮", "🕵️", "💂", "🥷", "👷", "🫅", "🤴", "👸", "👳", "👲", "🧕", "🤵", "👰", "🤰", "🤱", "👼", "🎅", "🤶", "🦸", "🦹", "🧙", "🧚", "🧛", "🧜", "🧝", "🧞", "🧟",
+                        "💆", "💇", "🚶", "🧍", "🧎", "🏃", "💃", "🕺", "🕴️", "👯", "🧖", "🧗",
+                        "🫂", "👥", "👤", "🗣️", "👣"
+                    )
+                )
+            )
+
+            // Animals & Nature
+            addAll(expandRange(0x1F400, 0x1F43E, "Animals", "animal pet wildlife nature"))
+            addAll(expandRange(0x1F980, 0x1F9AE, "Animals", "animal bird bug wildlife"))
+            addAll(
+                listFromSymbols(
+                    "Animals",
+                    "plant flower weather sky nature",
+                    listOf(
+                        "💐", "🌸", "💮", "🪷", "🏵️", "🌹", "🥀", "🌺", "🌻", "🌼", "🌷", "🪻",
+                        "🌱", "🪴", "🌲", "🌳", "🌴", "🌵", "🌾", "🌿", "☘️", "🍀", "🍁", "🍂", "🍃", "🪹", "🪺", "🍄",
+                        "🪨", "🌍", "🌎", "🌏", "🌐", "🌑", "🌒", "🌓", "🌔", "🌕", "🌖", "🌗", "🌘", "🌙", "🌚", "🌛", "🌜", "☀️", "🌝", "🌞", "⭐", "🌟", "🌠", "☁️", "⛅", "⛈️", "🌤️", "🌥️", "🌦️", "🌧️", "🌨️", "🌩️", "🌪️", "🌫️", "🌬️", "🌀", "🌈", "🌂", "☂️", "☔", "⚡", "❄️", "☃️", "⛄", "☄️", "🔥", "💧", "🌊"
+                    )
+                )
+            )
+
+            // Food & Drink
+            addAll(expandRange(0x1F345, 0x1F37F, "Food", "food meal fruit drink snack"))
+            addAll(expandRange(0x1F950, 0x1F96F, "Food", "food meal drink breakfast"))
+            addAll(expandRange(0x1F9C0, 0x1F9CB, "Food", "food drink sweet"))
+            addAll(
+                listFromSymbols(
+                    "Food",
+                    "fruit vegetable drink dessert",
+                    listOf(
+                        "🍇", "🍈", "🍉", "🍊", "🍋", "🍌", "🍍", "🥭", "🍎", "🍏", "🍐", "🍑", "🍒", "🍓", "🫐", "🥝", "🫒", "🥥",
+                        "🫓", "🫔", "🫕", "🫖", "🧋", "🫘", "🫗", "🫙", "🍽️", "🍴", "🥄", "🔪", "🥢", "🧂"
+                    )
+                )
+            )
+
+            // Travel & Places
+            addAll(expandRange(0x1F680, 0x1F6C5, "Travel", "travel transport car plane rocket"))
+            addAll(
+                listFromSymbols(
+                    "Travel",
+                    "building map city nature place",
+                    listOf(
+                        "🗺️", "🧭", "🏔️", "⛰️", "🌋", "🗻", "🏕️", "🏖️", "🏜️", "🏝️", "🏞️", "🏟️", "🏛️", "🏗️", "🧱", "🪨", "🪵", "🛖",
+                        "🏘️", "🏚️", "🏠", "🏡", "🏢", "🏣", "🏤", "🏥", "🏦", "🏨", "🏩", "🏪", "🏫", "🏬", "🏭", "🏯", "🏰", "💒", "🗼", "🗽",
+                        "⛪", "🕌", "🛕", "🕍", "⛩️", "🕋", "⛲", "⛺", "🌁", "🌃", "🏙️", "🌄", "🌅", "🌆", "🌇", "🌉", "♨️", "🎠", "🛝", "🎡", "🎢",
+                        "🛢️", "⛽", "🛞", "🚨", "🚥", "🚦", "🛑", "🚧", "⚓", "🛟", "⛵", "🛶", "🚤", "🛳️", "⛴️", "🛥️", "✈️", "🛩️", "🛫", "🛬", "🪂", "💺", "🚁", "🚟", "🚠", "🚡", "🛰️", "🛸",
+                        "🛎️", "🧳", "⌛", "⏳", "⌚", "⏰", "⏱️", "⏲️", "🕰️"
+                    )
+                )
+            )
+
+            // Activities & Sports & Arts
+            addAll(expandRange(0x1F3A0, 0x1F3CA, "Activities", "sport game music art fun"))
+            addAll(
+                listFromSymbols(
+                    "Activities",
+                    "celebration sport music trophy game",
+                    listOf(
+                        "🎃", "🎄", "🎆", "🎇", "🧨", "✨", "🎈", "🎉", "🎊", "🎋", "🎍", "🎎", "🎏", "🎐", "🎑", "🧧", "🎀", "🎁", "🎗️", "🎟️", "🎫",
+                        "🎖️", "🏆", "🏅", "🥇", "🥈", "🥉", "⚽", "⚾", "🥎", "🏀", "🏐", "🏈", "🏉", "🎾", "🥏", "🎳", "🏏", "🏑", "🏒", "🥍", "🏓", "🏸", "🥊", "🥋", "🥅", "⛳", "⛸️", "🎣", "🤿", "🎽", "🎿", "🛷", "🥌",
+                        "🎯", "🪀", "🪁", "🎱", "🔮", "🪄", "🎮", "🕹️", "🎰", "🎲", "🧩", "🧸", "🪅", "🪩", "🪆", "♠️", "♥️", "♦️", "♣️", "♟️", "🃏", "🀄", "🎴",
+                        "🎭", "🖼️", "🎨", "🧵", "🪡", "🧶", "🪢"
+                    )
+                )
+            )
+
+            // Objects & Tech
+            addAll(expandRange(0x1F4BB, 0x1F4FF, "Objects", "tech computer phone office tool"))
+            addAll(expandRange(0x1F50D, 0x1F52E, "Objects", "search lock key fire tool"))
+            addAll(
+                listFromSymbols(
+                    "Objects",
+                    "clothing tech book tool home",
+                    listOf(
+                        "👓", "🕶️", "🥽", "🥼", "🦺", "👔", "👕", "👖", "🧣", "🧤", "🧥", "🧦", "👗", "👘", "🥻", "🩱", "🩲", "🩳", "👙", "👚", "👛", "👜", "👝", "🛍️", "🎒", "🩴", "👞", "👟", "🥾", "🥿", "👠", "👡", "🩰", "👢", "👑", "👒", "🎩", "🎓", "🧢", "🪖", "⛑️", "💍", "💎",
+                        "🔇", "🔈", "🔉", "🔊", "📢", "📣", "📯", "🔔", "🔕", "🎼", "🎵", "🎶", "🎙️", "🎚️", "🎛️", "🎤", "🎧", "📻", "🎷", "🪗", "🎸", "🎹", "🎺", "🎻", "🪕", "🥁", "🪘",
+                        "📱", "📲", "☎️", "📞", "📟", "📠", "🔋", "🪫", "🔌", "💻", "🖥️", "🖨️", "⌨️", "🖱️", "🖲️", "💽", "💾", "💿", "📀", "🧮", "🎥", "🎞️", "📽️", "🎬", "📺", "📷", "📸", "📹", "📼",
+                        "🕯️", "💡", "🔦", "🏮", "🪔", "📔", "📕", "📖", "📗", "📘", "📙", "📚", "📓", "📒", "📃", "📜", "📄", "📰", "🗞️", "📑", "🔖", "🏷️", "💰", "🪙", "💴", "💵", "💶", "💷", "💸", "💳", "🧾",
+                        "✉️", "📧", "📨", "📩", "📤", "📥", "📦", "📫", "📪", "📬", "📭", "📮", "🗳️", "✏️", "✒️", "🖋️", "🖊️", "🖌️", "🖍️", "📝", "💼", "📁", "📂", "🗂️", "📅", "📆", "🗒️", "🗓️", "📇", "📈", "📉", "📊", "📋", "📌", "📍", "📎", "🖇️", "📏", "📐", "✂️", "🗃️", "🗄️", "🗑️",
+                        "🔒", "🔓", "🔏", "🔐", "🔑", "🗝️", "🔨", "🪓", "⛏️", "⚒️", "🛠️", "🗡️", "⚔️", "💣", "🪃", "🏹", "🛡️", "🪚", "🔧", "🪛", "🔩", "⚙️", "🗜️", "⚖️", "🦯", "🔗", "⛓️", "🪝", "🧰", "🧲", "🪜",
+                        "⚗️", "🧪", "🧫", "🧬", "🔬", "🔭", "📡", "💉", "🩸", "💊", "🩹", "🩺", "🩻", "🚪", "🛗", "🪞", "🪟", "🛏️", "🛋️", "🪑", "🚽", "🪠", "🚿", "🛁", "🪤", "🪒", "🧴", "🧷", "🧹", "🧺", "🧻", "🪣", "🧼", "🫧", "🪥", "🧽", "🧯", "🛒"
+                    )
+                )
+            )
+
+            // Symbols & Signs & Zodiac & Clocks
+            addAll(
+                listFromSymbols(
+                    "Symbols",
+                    "symbol arrow sign check math clock zodiac",
+                    listOf(
+                        "💘", "❤️", "🆘", "🆔", "⚛️", "🛐", "🕉️", "✡️", "☸️", "☯️", "✝️", "☦️", "☪️", "☮️", "🕎", "🔯", "🪯",
+                        "♈", "♉", "♊", "♋", "♌", "♍", "♎", "♏", "♐", "♑", "♒", "♓", "⛎",
+                        "🔀", "🔁", "🔂", "▶️", "⏩", "⏭️", "⏯️", "◀️", "⏪", "⏮️", "🔼", "⏫", "🔽", "⏬", "⏸️", "⏹️", "⏺️", "⏏️", "🎦", "🔅", "🔆", "📶", "📳", "📴",
+                        "♀️", "♂️", "⚧️", "✖️", "➕", "➖", "➗", "🟰", "♾️", "‼️", "⁉️", "❓", "❔", "❕", "❗", "〰️", "💱", "💲",
+                        "⚕️", "♻️", "⚜️", "🔱", "📛", "🔰", "⭕", "✅", "☑️", "✔️", "❌", "❎", "➰", "➿", "〽️", "✳️", "✴️", "❇️", "©️", "®️", "™️",
+                        "#️⃣", "*️⃣", "0️⃣", "1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟",
+                        "🔠", "🔡", "🔢", "🔣", "🔤", "🅰️", "🆎", "🅱️", "🆑", "🆒", "🆓", "ℹ️", "🆔", "Ⓜ️", "🆕", "🆖", "🅾️", "🆗", "🅿️", "🆘", "🆙", "🆚",
+                        "🔴", "🟠", "🟡", "🟢", "🔵", "🟣", "🟤", "⚫", "⚪", "🟥", "🟧", "🟨", "🟩", "🟦", "🟪", "🟫", "⬛", "⬜", "◼️", "◻️", "◾", "◽", "▪️", "▫️", "🔶", "🔷", "🔸", "🔹", "🔺", "🔻", "💠", "🔘", "🔳", "🔲",
+                        "⬆️", "↗️", "➡️", "↘️", "⬇️", "↙️", "⬅️", "↖️", "↕️", "↔️", "↩️", "↪️", "⤴️", "⤵️", "🔃", "🔄", "🔙", "🔚", "🔛", "🔜", "🔝",
+                        "🕐", "🕑", "🕒", "🕓", "🕔", "🕕", "🕖", "🕗", "🕘", "🕙", "🕚", "🕛", "🕜", "🕝", "🕞", "🕟", "🕠", "🕡", "🕢", "🕣", "🕤", "🕥", "🕦", "🕧"
+                    )
+                )
+            )
+
+            // Flags
+            addAll(
+                listFromSymbols(
+                    "Flags",
+                    "flag country world nation",
+                    listOf(
+                        "🏁", "🚩", "🎌", "🏴", "🏳️", "🏳️‍🌈", "🏳️‍⚧️", "🏴‍☠️",
+                        "🇺🇸", "🇬🇧", "🇨🇦", "🇦🇺", "🇩🇪", "🇫🇷", "🇪🇸", "🇮🇹", "🇯🇵", "🇰🇷", "🇮🇳", "🇧🇷", "🇲🇽", "🇨🇳",
+                        "🇷🇺", "🇺🇦", "🇵🇱", "🇳🇱", "🇸🇪", "🇳🇴", "🇩🇰", "🇫🇮", "🇨🇭", "🇦🇹", "🇧🇪", "🇵🇹", "🇮🇪", "🇬🇷",
+                        "🇹🇷", "🇸🇦", "🇦🇪", "🇪🇬", "🇿🇦", "🇳🇬", "🇰🇪", "🇦🇷", "🇨🇴", "🇨🇱", "🇵🇪", "🇻🇪",
+                        "🇮🇩", "🇲🇾", "🇸🇬", "🇹🇭", "🇻🇳", "🇵🇭", "🇵🇰", "🇧🇩", "🇱🇰", "🇳🇵", "🇳🇿", "🇮🇱"
+                    )
+                )
+            )
+        }.distinctBy { it.symbol }
+    }
 }
