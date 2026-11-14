@@ -39,18 +39,19 @@ jobs:
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
+          GIPHY_API_KEY: ${{ secrets.GIPHY_API_KEY }}
+          TENOR_API_KEY: ${{ secrets.TENOR_API_KEY }}
+          KLIPY_API_KEY: ${{ secrets.KLIPY_API_KEY }}
         run: |
           cp .env.example .env
-          if [ -n "$OPENROUTER_API_KEY" ]; then
-            grep -v "^OPENROUTER_API_KEY=" .env > .env.tmp || true
-            mv .env.tmp .env
-            printf 'OPENROUTER_API_KEY=%s\n' "$OPENROUTER_API_KEY" >> .env
-          fi
-          if [ -n "$MONGODB_URI" ]; then
-            grep -v "^MONGODB_URI=" .env > .env.tmp || true
-            mv .env.tmp .env
-            printf 'MONGODB_URI=%s\n' "$MONGODB_URI" >> .env
-          fi
+          for VAR in OPENROUTER_API_KEY MONGODB_URI GIPHY_API_KEY TENOR_API_KEY KLIPY_API_KEY; do
+            VAL="${!VAR}"
+            if [ -n "$VAL" ]; then
+              grep -v "^${VAR}=" .env > .env.tmp || true
+              mv .env.tmp .env
+              printf '%s=%s\n' "$VAR" "$VAL" >> .env
+            fi
+          done
 
       - name: Make Gradlew Executable
         run: chmod +x gradlew

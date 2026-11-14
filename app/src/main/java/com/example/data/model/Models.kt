@@ -39,7 +39,23 @@ data class MessageEntity(
     val status: String,        // "PENDING", "SENT", "DELIVERED", "READ"
     val isOutgoing: Boolean,
     val reaction: String? = null,
-    val mediaUri: String? = null
+    val mediaUri: String? = null,
+    val messageType: String = "TEXT" // "TEXT", "IMAGE", "GIF", "STICKER"
+)
+
+/**
+ * Custom & Built-in Stickers stored locally in Room
+ */
+@Entity(tableName = "custom_stickers")
+data class CustomStickerEntity(
+    @PrimaryKey
+    val id: String,
+    val label: String,
+    val uri: String,
+    val packName: String = "My Stickers",
+    val isCustom: Boolean = true,
+    val styleTag: String = "CLEAN",
+    val createdAt: Long = System.currentTimeMillis()
 )
 
 /**

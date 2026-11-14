@@ -1,14 +1,23 @@
 package com.example.ui
 
 import android.app.Application
+import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.model.ConversationEntity
+import com.example.data.model.CustomStickerEntity
 import com.example.data.model.MessageEntity
 import com.example.data.model.PeerEntity
 import com.example.data.model.UserAccountEntity
+import com.example.data.network.GifItem
+import com.example.data.network.GifProvider
+import com.example.data.network.GifProviderManager
 import com.example.data.repository.ChatRepository
+import com.example.ui.components.StickerStorageUtils
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -18,6 +27,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ChatViewModel(application: Application) : AndroidViewModel(application) {
@@ -104,6 +114,31 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val _relayTestResult = MutableStateFlow<String?>(null)
     val relayTestResult: StateFlow<String?> = _relayTestResult.asStateFlow()
 
+    // Stickers & Multi-Provider GIF Search State
+    val stickers: StateFlow<List<CustomStickerEntity>> = repository.getAllStickers()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    private val _selectedGifProvider = MutableStateFlow(GifProvider.ALL)
+    val selectedGifProvider: StateFlow<GifProvider> = _selectedGifProvider.asStateFlow()
+
+    private val _gifQuery = MutableStateFlow("")
+    val gifQuery: StateFlow<String> = _gifQuery.asStateFlow()
+
+    private val _gifItems = MutableStateFlow<List<GifItem>>(emptyList())
+    val gifItems: StateFlow<List<GifItem>> = _gifItems.asStateFlow()
+
+    private val _isLoadingGifs = MutableStateFlow(false)
+    val isLoadingGifs: StateFlow<Boolean> = _isLoadingGifs.asStateFlow()
+
+    private val _gifNotice = MutableStateFlow<String?>(null)
+    val gifNotice: StateFlow<String?> = _gifNotice.asStateFlow()
+
+    private var gifSearchJob: Job? = null
+
+    init {
+        refreshGifs()
+    }
+
     fun setAppInForeground(inForeground: Boolean) {
         repository.setAppInForeground(inForeground)
     }
@@ -165,12 +200,54 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         repository.setActiveConversationPeerId(null)
     }
 
-    fun sendMessage(content: String, mediaUri: String? = null) {
+    fun sendMessage(content: String, mediaUri: String? = null, messageType: String = "TEXT") {
         val peerId = _activePeerId.value ?: return
         if (content.isBlank() && mediaUri == null) return
 
         viewModelScope.launch {
-            repository.sendMessage(peerId, content.trim(), mediaUri)
+            repository.sendMessage(peerId, content.trim(), mediaUri, messageType)
+        }
+    }
+
+    fun selectGifProvider(provider: GifProvider) {
+        _selectedGifProvider.value = provider
+        refreshGifs(immediate = true)
+    }
+
+    fun updateGifQuery(query: String) {
+        _gifQuery.value = query
+        refreshGifs(immediate = false)
+    }
+
+    fun refreshGifs(immediate: Boolean = true) {
+        gifSearchJob?.cancel()
+        gifSearchJob = viewModelScope.launch {
+            if (!immediate) delay(350)
+            _isLoadingGifs.value = true
+            val result = GifProviderManager.searchOrTrending(
+                provider = _selectedGifProvider.value,
+                query = _gifQuery.value
+            )
+            _gifItems.value = result.items
+            _gifNotice.value = result.notice
+            _isLoadingGifs.value = false
+        }
+    }
+
+    fun createCustomSticker(label: String, sourceUri: Uri, styleTag: String = "OUTLINE") {
+        viewModelScope.launch {
+            val savedUri = withContext(Dispatchers.IO) {
+                StickerStorageUtils.createCustomStickerFile(getApplication(), sourceUri, styleTag)
+            }
+            if (savedUri != null) {
+                repository.addCustomSticker(label, savedUri, styleTag)
+            }
+        }
+    }
+
+    fun deleteSticker(id: String) {
+        viewModelScope.launch {
+            repository.deleteSticker(id)
         }
     }
 

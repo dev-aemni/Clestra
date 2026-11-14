@@ -5,6 +5,7 @@ import com.example.BuildConfig
 import com.example.data.db.AppDatabase
 import com.example.data.model.ClestraIdGenerator
 import com.example.data.model.ConversationEntity
+import com.example.data.model.CustomStickerEntity
 import com.example.data.model.MessageEntity
 import com.example.data.model.PeerEntity
 import com.example.data.model.SendMessagePayload
@@ -14,6 +15,7 @@ import com.example.data.network.NetworkClient
 import com.example.data.network.NotificationHelper
 import com.example.data.network.OpenRouterClient
 import com.example.data.network.OpenRouterMessage
+import com.example.ui.components.StickerStorageUtils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -42,6 +44,7 @@ class ChatRepository(
     private val messageDao = database.messageDao()
     private val conversationDao = database.conversationDao()
     private val peerDao = database.peerDao()
+    private val stickerDao = database.stickerDao()
 
     // Account State
     val accountFlow: Flow<UserAccountEntity?> = accountDao.getAccountFlow()
@@ -89,6 +92,7 @@ class ChatRepository(
         NotificationHelper.ensureChannel(context)
         scope.launch {
             ensureOfficialClestraBotSeeded()
+            ensureDefaultStickersSeeded()
         }
         // Background polling for queued relay messages while online
         scope.launch {
@@ -116,6 +120,30 @@ class ChatRepository(
 
     fun getRelayMessagesCount(): Flow<Int> = messageDao.getRelayMessagesCount()
     fun getP2PMessagesCount(): Flow<Int> = messageDao.getP2PMessagesCount()
+    fun getAllStickers(): Flow<List<CustomStickerEntity>> = stickerDao.getAllStickers()
+
+    suspend fun ensureDefaultStickersSeeded() {
+        if (stickerDao.getStickerCount() == 0) {
+            stickerDao.insertStickers(StickerStorageUtils.defaultStickerEntities())
+        }
+    }
+
+    suspend fun addCustomSticker(label: String, uri: String, styleTag: String = "OUTLINE") {
+        val sticker = CustomStickerEntity(
+            id = "stk_custom_${UUID.randomUUID()}",
+            label = label.trim().ifBlank { "Custom Sticker" },
+            uri = uri,
+            packName = "My Stickers",
+            isCustom = true,
+            styleTag = styleTag,
+            createdAt = System.currentTimeMillis()
+        )
+        stickerDao.insertSticker(sticker)
+    }
+
+    suspend fun deleteSticker(id: String) {
+        stickerDao.deleteSticker(id)
+    }
 
     suspend fun getConversation(peerId: String): ConversationEntity? =
         conversationDao.getConversation(peerId)
@@ -222,7 +250,8 @@ class ChatRepository(
     suspend fun sendMessage(
         recipientPeerId: String,
         content: String,
-        mediaUri: String? = null
+        mediaUri: String? = null,
+        messageType: String = "TEXT"
     ): MessageEntity? {
         val peer = peerDao.getPeer(recipientPeerId)
         if (peer?.isBlocked == true) {
@@ -234,10 +263,27 @@ class ChatRepository(
         val isOnline = peer?.isOnline ?: false
         val messageId = UUID.randomUUID().toString()
         val now = System.currentTimeMillis()
-        val effectiveContent = content.ifBlank { if (mediaUri != null) "Photo attachment" else "" }
+        val effectiveType = when {
+            messageType != "TEXT" -> messageType
+            mediaUri != null -> "IMAGE"
+            else -> "TEXT"
+        }
+        val effectiveContent = content.ifBlank {
+            when (effectiveType) {
+                "GIF" -> "GIF"
+                "STICKER" -> "Sticker"
+                "IMAGE" -> "Photo attachment"
+                else -> ""
+            }
+        }
+
+        val transportPlaintext = when (effectiveType) {
+            "TEXT" -> effectiveContent
+            else -> "$effectiveType::$effectiveContent::${mediaUri.orEmpty()}"
+        }
 
         // Encrypt payload with AES-256-GCM for both P2P and MongoDB relay transport
-        val encryptedPayload = CryptoUtils.encryptPayload(effectiveContent, myId, recipientPeerId)
+        val encryptedPayload = CryptoUtils.encryptPayload(transportPlaintext, myId, recipientPeerId)
 
         val route = if (isOnline || recipientPeerId == OFFICIAL_BOT_ID) "P2P_DIRECT" else "SERVERLESS_RELAY"
         val initialStatus = if (route == "P2P_DIRECT") "DELIVERED" else "SENT"
@@ -253,10 +299,18 @@ class ChatRepository(
             deliveryRoute = route,
             status = initialStatus,
             isOutgoing = true,
-            mediaUri = mediaUri
+            mediaUri = mediaUri,
+            messageType = effectiveType
         )
 
         messageDao.insertMessage(message)
+
+        val previewText = when (effectiveType) {
+            "GIF" -> "🎞️ GIF"
+            "STICKER" -> "🏷️ Sticker"
+            "IMAGE" -> if (content.isNotBlank()) "📷 $content" else "📷 Photo"
+            else -> effectiveContent
+        }
 
         val peerName = peer?.displayName ?: "Clestra Peer"
         val peerAvatarColor = peer?.avatarColor ?: 0xFFC4763A
@@ -266,7 +320,7 @@ class ChatRepository(
             peerName = peerName,
             peerAvatarColor = peerAvatarColor,
             peerAvatarIcon = peerAvatarIcon,
-            lastMessage = if (mediaUri != null && content.isBlank()) "📷 Photo" else effectiveContent,
+            lastMessage = previewText,
             lastTimestamp = now,
             unreadCount = 0,
             isPeerOnline = isOnline || recipientPeerId == OFFICIAL_BOT_ID,
@@ -279,8 +333,14 @@ class ChatRepository(
 
         when {
             recipientPeerId == OFFICIAL_BOT_ID -> {
+                val botPromptText = when (effectiveType) {
+                    "GIF" -> "[User sent a GIF: $effectiveContent]"
+                    "STICKER" -> "[User sent a sticker: $effectiveContent]"
+                    "IMAGE" -> "[User sent a photo]"
+                    else -> effectiveContent
+                }
                 scope.launch {
-                    replyAsClestraBot(myAccount, effectiveContent)
+                    replyAsClestraBot(myAccount, botPromptText)
                 }
             }
             isOnline -> {
@@ -449,17 +509,20 @@ class ChatRepository(
                         senderId = item.senderId,
                         recipientId = item.recipientId
                     )
+                    val (msgType, cleanContent, mediaUri) = decodeIncomingPayload(decrypted)
                     MessageEntity(
                         id = item.id ?: UUID.randomUUID().toString(),
                         conversationId = item.senderId,
                         senderId = item.senderId,
                         recipientId = item.recipientId,
-                        content = decrypted,
+                        content = cleanContent,
                         compressedContent = item.compressedContent,
                         timestamp = item.timestamp,
                         deliveryRoute = "SERVERLESS_RELAY",
                         status = "DELIVERED",
-                        isOutgoing = false
+                        isOutgoing = false,
+                        mediaUri = mediaUri,
+                        messageType = msgType
                     )
                 }
 
@@ -491,17 +554,20 @@ class ChatRepository(
                             senderId = item.senderId,
                             recipientId = item.recipientId
                         )
+                        val (msgType, cleanContent, mediaUri) = decodeIncomingPayload(decrypted)
                         MessageEntity(
                             id = UUID.randomUUID().toString(),
                             conversationId = item.senderId,
                             senderId = item.senderId,
                             recipientId = item.recipientId,
-                            content = decrypted,
+                            content = cleanContent,
                             compressedContent = item.compressedContent,
                             timestamp = item.timestamp,
                             deliveryRoute = "SERVERLESS_RELAY",
                             status = "DELIVERED",
-                            isOutgoing = false
+                            isOutgoing = false,
+                            mediaUri = mediaUri,
+                            messageType = msgType
                         )
                     }
                     if (incomingList.isNotEmpty()) {
@@ -665,8 +731,11 @@ class ChatRepository(
         if (!peer.isOnline || peer.isBlocked) return
 
         // Decrypt the incoming encrypted P2P payload on peer side
-        val userMessage = CryptoUtils.decryptPayload(encryptedUserPayload, myId, peerId)
+        val rawDecrypted = CryptoUtils.decryptPayload(encryptedUserPayload, myId, peerId)
+        val (msgType, userMessage, _) = decodeIncomingPayload(rawDecrypted)
         val replyText = when {
+            msgType == "GIF" -> "Nice animated GIF! Received over encrypted P2P."
+            msgType == "STICKER" -> "Awesome sticker! Received via AES-256-GCM P2P."
             userMessage.contains("hello", ignoreCase = true) || userMessage.contains("hi", ignoreCase = true) ->
                 "Hey! Got your encrypted message directly over P2P."
             userMessage.contains("id", ignoreCase = true) ->
@@ -716,6 +785,21 @@ class ChatRepository(
         )
 
         maybeNotifyIncomingMessage(peerId, peer.displayName, decryptedOnReceive)
+    }
+
+    private fun decodeIncomingPayload(decrypted: String): Triple<String, String, String?> {
+        val prefixes = listOf("GIF::", "STICKER::", "IMAGE::")
+        for (prefix in prefixes) {
+            if (decrypted.startsWith(prefix)) {
+                val type = prefix.removeSuffix("::")
+                val rest = decrypted.removePrefix(prefix)
+                val parts = rest.split("::", limit = 2)
+                val content = parts.getOrNull(0)?.ifBlank { type } ?: type
+                val uri = parts.getOrNull(1)?.takeIf { it.isNotBlank() }
+                return Triple(type, content, uri)
+            }
+        }
+        return Triple("TEXT", decrypted, null)
     }
 
     /**

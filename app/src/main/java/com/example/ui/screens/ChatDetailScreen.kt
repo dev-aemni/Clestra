@@ -37,6 +37,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
@@ -44,6 +45,8 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.EmojiEmotions
+import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.NotificationsActive
@@ -69,10 +72,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
@@ -85,7 +91,10 @@ import com.example.R
 import com.example.data.model.MessageEntity
 import com.example.data.repository.ChatRepository
 import com.example.ui.ChatViewModel
+import com.example.ui.components.CoilGifSupport
+import com.example.ui.components.ExpressionPanel
 import com.example.ui.components.RouteToggleChip
+import com.example.ui.components.StickerVisual
 import com.example.ui.theme.ClestraBubbleRecv
 import com.example.ui.theme.ClestraBubbleSent
 import com.example.ui.theme.ClestraCharcoal
@@ -117,14 +126,30 @@ fun ChatDetailScreen(
     }
 
     val context = LocalContext.current
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val gifImageLoader = remember(context) { CoilGifSupport.getImageLoader(context) }
+
     val conversation by viewModel.activeConversation.collectAsState()
     val peer by viewModel.activePeer.collectAsState()
     val messages by viewModel.activeMessages.collectAsState()
     val isBotTyping by viewModel.isBotTyping.collectAsState()
+    val stickers by viewModel.stickers.collectAsState()
+    val gifItems by viewModel.gifItems.collectAsState()
+    val selectedGifProvider by viewModel.selectedGifProvider.collectAsState()
+    val gifQuery by viewModel.gifQuery.collectAsState()
+    val isLoadingGifs by viewModel.isLoadingGifs.collectAsState()
+    val gifNotice by viewModel.gifNotice.collectAsState()
+
     var inputText by remember { mutableStateOf("") }
     var previewMediaUri by remember { mutableStateOf<String?>(null) }
     var showOverflowMenu by remember { mutableStateOf(false) }
+    var showExpressionPanel by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
+
+    BackHandler(enabled = showExpressionPanel && previewMediaUri == null) {
+        showExpressionPanel = false
+    }
 
     val mediaPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
@@ -409,79 +434,160 @@ fun ChatDetailScreen(
                     shadowElevation = 8.dp,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        IconButton(
-                            onClick = {
-                                mediaPickerLauncher.launch(
-                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                                )
-                            },
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Row(
                             modifier = Modifier
-                                .minimumInteractiveComponentSize()
-                                .testTag("attach_button")
+                                .fillMaxWidth()
+                                .padding(horizontal = 6.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Add,
-                                contentDescription = "Attach media",
-                                tint = ClestraTextSoft,
-                                modifier = Modifier.size(24.dp)
+                            IconButton(
+                                onClick = {
+                                    mediaPickerLauncher.launch(
+                                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                    )
+                                },
+                                modifier = Modifier
+                                    .minimumInteractiveComponentSize()
+                                    .testTag("attach_button")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Add,
+                                    contentDescription = "Attach media",
+                                    tint = ClestraTextSoft,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+
+                            IconButton(
+                                onClick = {
+                                    if (!showExpressionPanel) {
+                                        focusManager.clearFocus()
+                                        keyboardController?.hide()
+                                        showExpressionPanel = true
+                                    } else {
+                                        showExpressionPanel = false
+                                    }
+                                },
+                                modifier = Modifier
+                                    .minimumInteractiveComponentSize()
+                                    .testTag("expression_panel_toggle")
+                            ) {
+                                Icon(
+                                    imageVector = if (showExpressionPanel) Icons.Default.Keyboard else Icons.Default.EmojiEmotions,
+                                    contentDescription = if (showExpressionPanel) "Hide expressions" else "Emojis, Stickers & GIFs",
+                                    tint = if (showExpressionPanel) ClestraCopper else ClestraTextSoft,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+
+                            TextField(
+                                value = inputText,
+                                onValueChange = { inputText = it },
+                                placeholder = {
+                                    Text(
+                                        text = if (isOfficial) "Ask Clestra anything..." else "Message...",
+                                        color = ClestraTextSoft,
+                                        fontSize = 14.sp
+                                    )
+                                },
+                                maxLines = 4,
+                                shape = RoundedCornerShape(16.dp),
+                                colors = TextFieldDefaults.colors(
+                                    focusedContainerColor = ClestraCream,
+                                    unfocusedContainerColor = ClestraCream,
+                                    focusedIndicatorColor = Color.Transparent,
+                                    unfocusedIndicatorColor = Color.Transparent,
+                                    focusedTextColor = ClestraCharcoal,
+                                    unfocusedTextColor = ClestraCharcoal,
+                                    cursorColor = ClestraCopper
+                                ),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .heightIn(min = 44.dp)
+                                    .onFocusChanged { state ->
+                                        if (state.isFocused) {
+                                            showExpressionPanel = false
+                                        }
+                                    }
+                                    .testTag("chat_input_field")
                             )
+
+                            Spacer(modifier = Modifier.width(8.dp))
+
+                            Box(
+                                modifier = Modifier
+                                    .minimumInteractiveComponentSize()
+                                    .size(40.dp)
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(ClestraBubbleSent)
+                                    .clickable {
+                                        if (inputText.isNotBlank()) {
+                                            viewModel.sendMessage(inputText)
+                                            inputText = ""
+                                        }
+                                    }
+                                    .testTag("send_button"),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.Send,
+                                    contentDescription = "Send Message",
+                                    tint = ClestraCopperDark,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
                         }
 
-                        TextField(
-                            value = inputText,
-                            onValueChange = { inputText = it },
-                            placeholder = {
-                                Text(
-                                    text = if (isOfficial) "Ask Clestra anything..." else "Message...",
-                                    color = ClestraTextSoft,
-                                    fontSize = 14.sp
-                                )
-                            },
-                            maxLines = 4,
-                            shape = RoundedCornerShape(16.dp),
-                            colors = TextFieldDefaults.colors(
-                                focusedContainerColor = ClestraCream,
-                                unfocusedContainerColor = ClestraCream,
-                                focusedIndicatorColor = Color.Transparent,
-                                unfocusedIndicatorColor = Color.Transparent,
-                                focusedTextColor = ClestraCharcoal,
-                                unfocusedTextColor = ClestraCharcoal,
-                                cursorColor = ClestraCopper
-                            ),
-                            modifier = Modifier
-                                .weight(1f)
-                                .heightIn(min = 44.dp)
-                                .testTag("chat_input_field")
-                        )
-
-                        Spacer(modifier = Modifier.width(8.dp))
-
-                        Box(
-                            modifier = Modifier
-                                .minimumInteractiveComponentSize()
-                                .size(40.dp)
-                                .clip(RoundedCornerShape(16.dp))
-                                .background(ClestraBubbleSent)
-                                .clickable {
-                                    if (inputText.isNotBlank()) {
-                                        viewModel.sendMessage(inputText)
-                                        inputText = ""
+                        AnimatedVisibility(visible = showExpressionPanel) {
+                            ExpressionPanel(
+                                stickers = stickers,
+                                gifItems = gifItems,
+                                selectedGifProvider = selectedGifProvider,
+                                gifQuery = gifQuery,
+                                isLoadingGifs = isLoadingGifs,
+                                gifNotice = gifNotice,
+                                onSelectEmoji = { emoji ->
+                                    inputText += emoji
+                                },
+                                onBackspaceEmoji = {
+                                    if (inputText.isNotEmpty()) {
+                                        val bi = java.text.BreakIterator.getCharacterInstance()
+                                        bi.setText(inputText)
+                                        bi.last()
+                                        val prev = bi.previous()
+                                        if (prev != java.text.BreakIterator.DONE) {
+                                            inputText = inputText.substring(0, prev)
+                                        }
                                     }
+                                },
+                                onSendSticker = { sticker ->
+                                    viewModel.sendMessage(
+                                        content = sticker.label,
+                                        mediaUri = sticker.uri,
+                                        messageType = "STICKER"
+                                    )
+                                },
+                                onCreateCustomSticker = { label, uri, styleTag ->
+                                    viewModel.createCustomSticker(label, uri, styleTag)
+                                },
+                                onDeleteSticker = { stickerId ->
+                                    viewModel.deleteSticker(stickerId)
+                                },
+                                onSelectGifProvider = { provider ->
+                                    viewModel.selectGifProvider(provider)
+                                },
+                                onGifQueryChange = { query ->
+                                    viewModel.updateGifQuery(query)
+                                },
+                                onSendGif = { gif ->
+                                    viewModel.sendMessage(
+                                        content = gif.title,
+                                        mediaUri = gif.fullUrl,
+                                        messageType = "GIF"
+                                    )
+                                    showExpressionPanel = false
                                 }
-                                .testTag("send_button"),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.Send,
-                                contentDescription = "Send Message",
-                                tint = ClestraCopperDark,
-                                modifier = Modifier.size(20.dp)
                             )
                         }
                     }
@@ -501,6 +607,7 @@ fun ChatDetailScreen(
             ) {
                 AsyncImage(
                     model = previewMediaUri,
+                    imageLoader = gifImageLoader,
                     contentDescription = "Media preview",
                     contentScale = ContentScale.Fit,
                     modifier = Modifier.fillMaxSize()
@@ -534,17 +641,22 @@ fun MessageBubble(
     onOpenMedia: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val gifImageLoader = remember(context) { CoilGifSupport.getImageLoader(context) }
     val clipboard = LocalClipboardManager.current
     var showMenu by remember { mutableStateOf(false) }
     val isSent = message.isOutgoing
     val isBotIncoming = !isSent && isOfficialBotChat
+    val isSticker = message.messageType == "STICKER"
+    val isGif = message.messageType == "GIF"
 
     val bubbleBg = when {
+        isSticker -> Color.Transparent
         isSent -> ClestraBubbleSent
         isBotIncoming -> ClestraWarmBeige
         else -> ClestraBubbleRecv
     }
-    val bubbleBorder = if (isBotIncoming) {
+    val bubbleBorder = if (isBotIncoming && !isSticker) {
         BorderStroke(1.dp, ClestraCopper.copy(alpha = 0.35f))
     } else null
 
@@ -559,60 +671,102 @@ fun MessageBubble(
         horizontalAlignment = if (isSent) Alignment.End else Alignment.Start
     ) {
         Box {
-            Surface(
-                shape = RoundedCornerShape(16.dp),
-                color = bubbleBg,
-                border = bubbleBorder,
-                shadowElevation = if (isSent || isBotIncoming) 1.dp else 0.dp,
-                modifier = Modifier
-                    .widthIn(max = 300.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .clickable { showMenu = true }
-                    .testTag("message_bubble_${message.id}")
-            ) {
-                Column(
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+            if (isSticker) {
+                Box(
+                    modifier = Modifier
+                        .size(144.dp)
+                        .clip(RoundedCornerShape(20.dp))
+                        .clickable { showMenu = true }
+                        .testTag("message_bubble_${message.id}")
                 ) {
-                    if (isBotIncoming) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(bottom = 4.dp)
+                    StickerVisual(
+                        uri = message.mediaUri,
+                        label = message.content,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+            } else {
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = bubbleBg,
+                    border = bubbleBorder,
+                    shadowElevation = if (isSent || isBotIncoming) 1.dp else 0.dp,
+                    modifier = Modifier
+                        .widthIn(max = 300.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .clickable { showMenu = true }
+                        .testTag("message_bubble_${message.id}")
+                ) {
+                    Column(
+                        modifier = Modifier.padding(
+                            horizontal = if (isGif) 6.dp else 14.dp,
+                            vertical = if (isGif) 6.dp else 10.dp
+                        )
+                    ) {
+                        if (isBotIncoming) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(bottom = 4.dp)
+                            ) {
+                                Text(
+                                    text = "Clestra",
+                                    color = ClestraCopperDark,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                OfficialTag()
+                            }
+                        }
+
+                        if (!message.mediaUri.isNullOrBlank()) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(185.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .clickable { onOpenMedia(message.mediaUri) }
+                            ) {
+                                AsyncImage(
+                                    model = message.mediaUri,
+                                    imageLoader = gifImageLoader,
+                                    contentDescription = if (isGif) "GIF: ${message.content}" else "Image attachment",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                                if (isGif) {
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = ClestraCharcoal.copy(alpha = 0.72f),
+                                        modifier = Modifier
+                                            .align(Alignment.BottomStart)
+                                            .padding(6.dp)
+                                    ) {
+                                        Text(
+                                            text = "GIF",
+                                            color = Color.White,
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                }
+                            }
+                            if (!isGif && message.content.isNotBlank() && message.content != "Photo attachment") {
+                                Spacer(modifier = Modifier.height(6.dp))
+                            }
+                        }
+
+                        if (!isGif &&
+                            message.content.isNotBlank() &&
+                            !(message.mediaUri != null && message.content == "Photo attachment")
                         ) {
                             Text(
-                                text = "Clestra",
-                                color = ClestraCopperDark,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold
+                                text = message.content,
+                                color = ClestraCharcoal,
+                                fontSize = 14.sp
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            OfficialTag()
                         }
-                    }
-
-                    if (!message.mediaUri.isNullOrBlank()) {
-                        AsyncImage(
-                            model = message.mediaUri,
-                            contentDescription = "Image attachment",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(180.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .clickable { onOpenMedia(message.mediaUri) }
-                        )
-                        if (message.content.isNotBlank() && message.content != "Photo attachment") {
-                            Spacer(modifier = Modifier.height(6.dp))
-                        }
-                    }
-
-                    if (message.content.isNotBlank() &&
-                        !(message.mediaUri != null && message.content == "Photo attachment")
-                    ) {
-                        Text(
-                            text = message.content,
-                            color = ClestraCharcoal,
-                            fontSize = 14.sp
-                        )
                     }
                 }
             }

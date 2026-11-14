@@ -5,6 +5,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import com.example.data.model.ConversationEntity
+import com.example.data.model.CustomStickerEntity
 import com.example.data.model.MessageEntity
 import com.example.data.model.PeerEntity
 import com.example.data.model.UserAccountEntity
@@ -125,4 +126,22 @@ interface PeerDao {
 
     @Query("DELETE FROM peers")
     suspend fun clearAllPeers()
+}
+
+@Dao
+interface StickerDao {
+    @Query("SELECT * FROM custom_stickers ORDER BY isCustom DESC, createdAt DESC")
+    fun getAllStickers(): Flow<List<CustomStickerEntity>>
+
+    @Query("SELECT COUNT(*) FROM custom_stickers")
+    suspend fun getStickerCount(): Int
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertSticker(sticker: CustomStickerEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertStickers(stickers: List<CustomStickerEntity>)
+
+    @Query("DELETE FROM custom_stickers WHERE id = :id")
+    suspend fun deleteSticker(id: String)
 }

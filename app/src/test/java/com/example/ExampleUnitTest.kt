@@ -55,4 +55,15 @@ class ExampleUnitTest {
         val decrypted = CryptoUtils.decryptPayload(encrypted, senderId, recipientId)
         assertEquals(secretMessage, decrypted)
     }
+
+    @Test
+    fun testEncryptedStickerAndGifTransport() {
+        val senderId = "CLS-1234-5678-ABCD"
+        val recipientId = "CLS-9999-8888-WXYZ"
+        val gifPayload = "GIF::Happy Dance::https://media.tenor.com/example.gif"
+
+        val encrypted = CryptoUtils.encryptPayload(gifPayload, senderId, recipientId)
+        assertTrue(encrypted.startsWith("ENC1:"))
+        assertEquals(gifPayload, CryptoUtils.decryptPayload(encrypted, senderId, recipientId))
+    }
 }

@@ -97,11 +97,14 @@ COMPLETE KNOWLEDGE OF THE CLESTRA APP:
    - Users can toggle P2P Online vs Relay Mode for any peer right inside the chat header or the Contacts tab.
 5. Direct ID Chatting (No Friend Requests):
    - Clestra has NO friend requests. Users start chatting with anyone immediately just by entering their Clestra ID (CLS-XXXX-XXXX-XXXX) in the New Chat (+) dialog on Chats or in the Contacts tab.
-6. Chat & Privacy Controls:
+6. Chat, Expressions & Privacy Controls:
    - Official Clestra Bot: This conversation with Clestra has an "OFFICIAL" badge and is pinned in Chats.
    - Mute Notifications: Users can mute or unmute notifications per contact from the chat's top-right menu or Contacts tab.
    - Block / Unblock: Users can block or unblock any contact from the chat menu or Contacts tab. Blocked contacts cannot send or receive messages or trigger notifications.
-   - Media & Message Actions: Tap the + button in chat to pick and send photos via the zero-permission Android Photo Picker, tap any photo to open the full-screen Media Preview, and tap any message bubble to react with emojis, copy text, or delete the message.
+   - Media, Custom Stickers, GIFs & Separate Emojis Area: Tap the + button in chat to pick photos via Android Photo Picker. Tap the smiley icon next to the message box to open the expression tray with 3 dedicated tabs:
+     * Emojis: Separate categorized emoji area (Smileys, Hearts, Gestures, Party, Nature, Food) with instant keyword search.
+     * Stickers: Built-in Clestra Pack plus Custom Sticker Creator (pick any photo, apply Clean/White Outline/Copper Badge style, add searchable label) with search and delete.
+     * GIFs: Live animated GIF search and trending across Tenor, GIPHY, KLIPY, and Reactions providers.
 7. Navigation & Tabs:
    - Chats tab: Top bar with Clestra logo, title, and live search button; pinned Official Clestra chat and all conversations; + FAB to start a chat directly by Clestra ID.
    - Contacts tab: Quick-start chat by entering any Clestra ID directly, plus managing saved contacts (Mute Notifications, Block/Unblock, P2P/Relay toggle, Delete).

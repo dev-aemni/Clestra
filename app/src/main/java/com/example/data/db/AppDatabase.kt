@@ -5,6 +5,7 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.example.data.model.ConversationEntity
+import com.example.data.model.CustomStickerEntity
 import com.example.data.model.MessageEntity
 import com.example.data.model.PeerEntity
 import com.example.data.model.UserAccountEntity
@@ -14,9 +15,10 @@ import com.example.data.model.UserAccountEntity
         UserAccountEntity::class,
         MessageEntity::class,
         ConversationEntity::class,
-        PeerEntity::class
+        PeerEntity::class,
+        CustomStickerEntity::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -24,6 +26,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun messageDao(): MessageDao
     abstract fun conversationDao(): ConversationDao
     abstract fun peerDao(): PeerDao
+    abstract fun stickerDao(): StickerDao
 
     companion object {
         @Volatile
