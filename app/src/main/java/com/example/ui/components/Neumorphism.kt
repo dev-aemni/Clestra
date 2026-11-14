@@ -36,9 +36,9 @@ import com.example.ui.theme.ClestraNeuSurface
 import com.example.ui.theme.ClestraNeuWell
 
 /**
- * Tactile extruded Neumorphism (Soft UI) modifier:
- * Draws layered top-left light highlight, bottom-right warm shadow,
- * surface fill, and subtle specular inner bevel.
+ * Tactile clean Soft UI (Neumorphism) modifier:
+ * Draws warm diffused bottom-right elevation shadows, smooth rounded surface,
+ * and a refined hairline contour without harsh white edge artifacts.
  */
 fun Modifier.neumorphicRaised(
     cornerRadius: Dp = 18.dp,
@@ -52,27 +52,15 @@ fun Modifier.neumorphicRaised(
     val corner = CornerRadius(radiusPx, radiusPx)
     val e = elevation.toPx()
 
-    // Multi-pass bottom-right warm dark shadow
-    val darkLayers = listOf(1.45f to 0.14f, 1.0f to 0.26f, 0.55f to 0.36f)
+    // Soft ambient warm drop shadow underneath & subtly toward bottom-right
+    val darkLayers = listOf(1.15f to 0.08f, 0.75f to 0.14f, 0.38f to 0.18f)
     darkLayers.forEach { (mult, alpha) ->
         val d = e * mult
         drawRoundRect(
             color = darkShadowColor.copy(alpha = alpha),
-            topLeft = Offset(d, d),
+            topLeft = Offset(d * 0.45f, d),
             size = size,
-            cornerRadius = CornerRadius(radiusPx + d * 0.25f, radiusPx + d * 0.25f)
-        )
-    }
-
-    // Multi-pass top-left specular highlight
-    val lightLayers = listOf(1.4f to 0.35f, 0.95f to 0.65f, 0.5f to 0.88f)
-    lightLayers.forEach { (mult, alpha) ->
-        val d = e * mult
-        drawRoundRect(
-            color = lightShadowColor.copy(alpha = alpha),
-            topLeft = Offset(-d, -d),
-            size = size,
-            cornerRadius = CornerRadius(radiusPx + d * 0.25f, radiusPx + d * 0.25f)
+            cornerRadius = CornerRadius(radiusPx + d * 0.12f, radiusPx + d * 0.12f)
         )
     }
 
@@ -84,31 +72,32 @@ fun Modifier.neumorphicRaised(
         cornerRadius = corner
     )
 
-    // Top-left specular inner rim + subtle bottom-right occlusion rim
-    val bevelBrush = Brush.linearGradient(
+    // Delicate contour hairline (no harsh thick white top-left bar)
+    val hairlineAlpha = if (accentBorderColor != null) 0.42f else 0.22f
+    val borderBrush = Brush.linearGradient(
         colors = listOf(
-            accentBorderColor?.copy(alpha = 0.55f) ?: lightShadowColor.copy(alpha = 0.85f),
-            Color.Transparent,
-            accentBorderColor?.copy(alpha = 0.25f) ?: darkShadowColor.copy(alpha = 0.35f)
+            accentBorderColor?.copy(alpha = hairlineAlpha) ?: lightShadowColor.copy(alpha = 0.14f),
+            darkShadowColor.copy(alpha = 0.12f),
+            accentBorderColor?.copy(alpha = 0.28f) ?: darkShadowColor.copy(alpha = 0.24f)
         ),
         start = Offset.Zero,
         end = Offset(size.width, size.height)
     )
     drawRoundRect(
-        brush = bevelBrush,
-        topLeft = Offset(0.5.dp.toPx(), 0.5.dp.toPx()),
+        brush = borderBrush,
+        topLeft = Offset(0.4.dp.toPx(), 0.4.dp.toPx()),
         size = Size(
-            (size.width - 1.dp.toPx()).coerceAtLeast(0f),
-            (size.height - 1.dp.toPx()).coerceAtLeast(0f)
+            (size.width - 0.8.dp.toPx()).coerceAtLeast(0f),
+            (size.height - 0.8.dp.toPx()).coerceAtLeast(0f)
         ),
         cornerRadius = corner,
-        style = Stroke(width = if (accentBorderColor != null) 1.4.dp.toPx() else 1.dp.toPx())
+        style = Stroke(width = if (accentBorderColor != null) 1.1.dp.toPx() else 0.75.dp.toPx())
     )
 }
 
 /**
  * Tactile Soft UI bubble modifier with WhatsApp-style asymmetric corner radii,
- * soft tonal gradient fill, and layered neumorphic depth shadows.
+ * soft tonal gradient fill, and gentle diffused depth shadow.
  */
 fun Modifier.neumorphicBubble(
     topStart: Dp = 20.dp,
@@ -145,16 +134,12 @@ fun Modifier.neumorphicBubble(
     }
 
     drawPath(
-        path = buildBubblePath(e * 1.15f, e * 1.15f),
-        color = darkShadowColor.copy(alpha = 0.24f)
+        path = buildBubblePath(e * 0.45f, e * 0.95f),
+        color = darkShadowColor.copy(alpha = 0.14f)
     )
     drawPath(
-        path = buildBubblePath(e * 0.55f, e * 0.55f),
-        color = darkShadowColor.copy(alpha = 0.34f)
-    )
-    drawPath(
-        path = buildBubblePath(-e * 0.85f, -e * 0.85f),
-        color = lightShadowColor.copy(alpha = 0.72f)
+        path = buildBubblePath(e * 0.25f, e * 0.50f),
+        color = darkShadowColor.copy(alpha = 0.18f)
     )
 
     val mainPath = buildBubblePath(0f, 0f)
@@ -169,17 +154,17 @@ fun Modifier.neumorphicBubble(
 
     val bevelBrush = Brush.linearGradient(
         colors = listOf(
-            accentBorderColor?.copy(alpha = 0.52f) ?: lightShadowColor.copy(alpha = 0.85f),
-            Color.Transparent,
-            accentBorderColor?.copy(alpha = 0.22f) ?: darkShadowColor.copy(alpha = 0.30f)
+            accentBorderColor?.copy(alpha = 0.38f) ?: lightShadowColor.copy(alpha = 0.12f),
+            darkShadowColor.copy(alpha = 0.10f),
+            accentBorderColor?.copy(alpha = 0.20f) ?: darkShadowColor.copy(alpha = 0.22f)
         ),
         start = Offset.Zero,
         end = Offset(size.width, size.height)
     )
     drawPath(
-        path = buildBubblePath(0f, 0f, inset = 0.6.dp.toPx()),
+        path = buildBubblePath(0f, 0f, inset = 0.5.dp.toPx()),
         brush = bevelBrush,
-        style = Stroke(width = if (accentBorderColor != null) 1.3.dp.toPx() else 1.dp.toPx())
+        style = Stroke(width = if (accentBorderColor != null) 1.05.dp.toPx() else 0.75.dp.toPx())
     )
 }
 
@@ -204,13 +189,13 @@ fun Modifier.neumorphicPressed(
         cornerRadius = corner
     )
 
-    // Subtle inward top-left shadow wash
+    // Gentle inward top-left shadow wash
     drawRoundRect(
         brush = Brush.linearGradient(
             colors = listOf(
-                darkShadowColor.copy(alpha = 0.48f),
+                darkShadowColor.copy(alpha = 0.24f),
                 Color.Transparent,
-                lightShadowColor.copy(alpha = 0.45f)
+                lightShadowColor.copy(alpha = 0.10f)
             ),
             start = Offset.Zero,
             end = Offset(size.width * 0.35f, size.height * 0.5f)
@@ -220,24 +205,24 @@ fun Modifier.neumorphicPressed(
         cornerRadius = corner
     )
 
-    // Crisp recessed rim (dark top-left, light bottom-right)
+    // Clean recessed rim without bright white border glare
     drawRoundRect(
         brush = Brush.linearGradient(
             colors = listOf(
-                darkShadowColor.copy(alpha = 0.65f),
-                Color.Transparent,
-                lightShadowColor.copy(alpha = 0.90f)
+                darkShadowColor.copy(alpha = 0.34f),
+                darkShadowColor.copy(alpha = 0.14f),
+                lightShadowColor.copy(alpha = 0.20f)
             ),
             start = Offset.Zero,
             end = Offset(size.width, size.height)
         ),
-        topLeft = Offset(0.5.dp.toPx(), 0.5.dp.toPx()),
+        topLeft = Offset(0.45.dp.toPx(), 0.45.dp.toPx()),
         size = Size(
-            (size.width - 1.dp.toPx()).coerceAtLeast(0f),
-            (size.height - 1.dp.toPx()).coerceAtLeast(0f)
+            (size.width - 0.9.dp.toPx()).coerceAtLeast(0f),
+            (size.height - 0.9.dp.toPx()).coerceAtLeast(0f)
         ),
         cornerRadius = corner,
-        style = Stroke(width = 1.2.dp.toPx())
+        style = Stroke(width = 0.9.dp.toPx())
     )
 }
 

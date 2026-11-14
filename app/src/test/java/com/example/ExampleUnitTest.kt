@@ -55,11 +55,31 @@ class ExampleUnitTest {
         val secretMessage = "Meet at 5pm — encrypted for P2P and MongoDB relay!"
 
         val encrypted = CryptoUtils.encryptPayload(secretMessage, senderId, recipientId)
-        assertTrue(encrypted.startsWith("ENC1:"))
+        assertTrue(encrypted.startsWith("ENC2:"))
         assertFalse(encrypted.contains(secretMessage))
 
         val decrypted = CryptoUtils.decryptPayload(encrypted, senderId, recipientId)
         assertEquals(secretMessage, decrypted)
+    }
+
+    @Test
+    fun testCompressionReducesRepetitiveEncryptedPayloads() {
+        val senderId = "dev"
+        val recipientId = "CLS-9999-8888-WXYZ"
+        val largePayload = ("Clestra E2EE + GZIP compressed message block!\n").repeat(60)
+        val rawUtf8Size = largePayload.toByteArray(Charsets.UTF_8).size
+        val encrypted = CryptoUtils.encryptPayload(largePayload, senderId, recipientId)
+        assertTrue("Expected compressed ciphertext ($encrypted.length) < raw ($rawUtf8Size)", encrypted.length < rawUtf8Size / 2)
+        assertEquals(largePayload, CryptoUtils.decryptPayload(encrypted, senderId, recipientId))
+    }
+
+    @Test
+    fun testBinaryBytesCompressionAndEncryptionRoundTrip() {
+        val raw = ("BINARY_FILE_CHUNK_HEADER_0001_").repeat(80).toByteArray(Charsets.UTF_8)
+        val sealed = CryptoUtils.encryptBytes(raw, "CLS-AAA1", "CLS-BBB2")
+        assertTrue("Expected binary sealed packet smaller than raw", sealed.size < raw.size / 2)
+        val opened = CryptoUtils.decryptBytes(sealed, "CLS-AAA1", "CLS-BBB2")
+        assertTrue(raw.contentEquals(opened))
     }
 
     @Test
@@ -69,7 +89,7 @@ class ExampleUnitTest {
         val gifPayload = "GIF::Happy Dance::https://nekos.best/api/v2/dance/example.gif"
 
         val encrypted = CryptoUtils.encryptPayload(gifPayload, senderId, recipientId)
-        assertTrue(encrypted.startsWith("ENC1:"))
+        assertTrue(encrypted.startsWith("ENC2:"))
         assertEquals(gifPayload, CryptoUtils.decryptPayload(encrypted, senderId, recipientId))
     }
 
@@ -145,6 +165,17 @@ class ExampleUnitTest {
 
         val hex8 = com.example.ui.components.CustomTagCodec.parseCustomRedeemTag("tag:Alpha@80112233")
         assertEquals("ALPHA|#80112233", hex8)
+
+        val grad = com.example.ui.components.CustomTagCodec.parseCustomRedeemTag("tag:sunset@#FF6B35-#6C5CE7")
+        assertEquals("SUNSET|#FF6B35|#6C5CE7", grad)
+        val gradSpec = com.example.ui.components.CustomTagCodec.parseDisplayTagSpec(grad!!)
+        assertEquals("SUNSET", gradSpec.name)
+        assertEquals(0xFFFF6B35L, gradSpec.primaryArgb)
+        assertEquals(0xFF6C5CE7L, gradSpec.secondaryArgb)
+
+        assertTrue(com.example.ui.components.CustomTagCodec.publicStarterTags.size >= 4)
+        assertEquals("dev", com.example.ui.components.CustomTagCodec.normalizePeerId(" DEV "))
+        assertEquals("CLS-12AB-34CD", com.example.ui.components.CustomTagCodec.normalizePeerId("cls-12ab-34cd"))
 
         org.junit.Assert.assertNull(com.example.ui.components.CustomTagCodec.parseCustomRedeemTag("tag:INVALID@ZZZZZZ"))
         org.junit.Assert.assertNull(com.example.ui.components.CustomTagCodec.parseCustomRedeemTag("not-a-tag"))

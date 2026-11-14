@@ -176,8 +176,8 @@ fun NewChatDialog(
 
                     ClestraPillInput(
                         value = customPeerId,
-                        onValueChange = { customPeerId = it.trim().uppercase() },
-                        hint = "Clestra ID (e.g. CLS-8A2F-9C14-X1P2)",
+                        onValueChange = { customPeerId = it.trim() },
+                        hint = "Clestra ID (e.g. CLS-8A2F-9C14-X1P2 or dev)",
                         containerColor = ClestraBubbleRecv,
                         modifier = Modifier.testTag("peer_id_input")
                     )

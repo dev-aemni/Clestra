@@ -128,10 +128,10 @@ fun ContactsScreen(
                 ClestraPillInput(
                     value = peerIdInput,
                     onValueChange = {
-                        peerIdInput = it.uppercase()
+                        peerIdInput = it
                         statusError = null
                     },
-                    hint = "Enter Clestra ID (e.g. CLS-...)",
+                    hint = "Enter Clestra ID (e.g. CLS-... or dev)",
                     modifier = Modifier.testTag("direct_chat_id_input")
                 )
 

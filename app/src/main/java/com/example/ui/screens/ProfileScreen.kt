@@ -57,6 +57,7 @@ import com.example.R
 import com.example.ui.ChatViewModel
 import com.example.ui.components.ClestraPillInput
 import com.example.ui.components.ClestraWallpaperBox
+import com.example.ui.components.CustomTagCodec
 import com.example.ui.components.NeumorphicButton
 import com.example.ui.components.NeumorphicCard
 import com.example.ui.components.SoftUiBadgeTag
@@ -227,12 +228,21 @@ fun ProfileScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = "Your Clestra ID",
-                        fontSize = 11.sp,
-                        color = ClestraTextSoft,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = if (myId == "dev") "Your Dev Account ID" else "Your Clestra ID",
+                            fontSize = 11.sp,
+                            color = if (myId == "dev") ClestraOnline else ClestraTextSoft,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        if (myId == "dev") {
+                            SoftUiBadgeTag(label = "DEV ACCOUNT|#BDF7CA|#8BE8A2")
+                        }
+                    }
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(
                         modifier = Modifier
@@ -304,12 +314,54 @@ fun ProfileScreen(
 
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Enter a redeem code or custom tag:NAME@#HEXCOLOR to unlock a badge.",
+                        text = "Pick a public badge below, or redeem a secret code, custom solid tag:NAME@#HEX, or gradient tag:NAME@#HEX1-#HEX2.",
                         fontSize = 12.sp,
                         color = ClestraTextSoft
                     )
 
                     Spacer(modifier = Modifier.height(12.dp))
+
+                    Text(
+                        text = "Public Badges (tap to equip)",
+                        fontSize = 11.sp,
+                        color = ClestraTextSoft,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        CustomTagCodec.publicStarterTags.forEach { starter ->
+                            val isSelected = starter == activeTag
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(50))
+                                    .then(
+                                        if (isSelected) {
+                                            Modifier.neumorphicPressed(
+                                                cornerRadius = 50.dp,
+                                                containerColor = ClestraNeuWell
+                                            )
+                                        } else {
+                                            Modifier
+                                        }
+                                    )
+                                    .clickable {
+                                        if (isSelected) {
+                                            viewModel.selectActiveTag(null)
+                                        } else {
+                                            viewModel.equipPublicTag(starter)
+                                        }
+                                    }
+                                    .padding(3.dp)
+                            ) {
+                                SoftUiBadgeTag(label = starter)
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
 
                     ClestraPillInput(
                         value = redeemCodeInput,
@@ -317,7 +369,7 @@ fun ProfileScreen(
                             redeemCodeInput = it
                             if (redeemStatus != null) viewModel.clearRedeemStatus()
                         },
-                        hint = "Enter redeem code",
+                        hint = "Secret code or tag:NAME@#HEX1-#HEX2",
                         isPassword = true,
                         passwordVisible = codeVisible,
                         onTogglePasswordVisible = { codeVisible = !codeVisible },

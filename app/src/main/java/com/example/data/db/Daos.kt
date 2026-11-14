@@ -34,6 +34,9 @@ interface AccountDao {
     @Query("UPDATE account SET activeTag = :activeTag, unlockedTags = :unlockedTags")
     suspend fun updateAccountTags(activeTag: String?, unlockedTags: String)
 
+    @Query("UPDATE account SET id = :newId")
+    suspend fun updateAccountId(newId: String)
+
     @Query("DELETE FROM account")
     suspend fun clearAccount()
 }

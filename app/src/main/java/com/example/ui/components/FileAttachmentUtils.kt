@@ -10,6 +10,7 @@ import android.os.Environment
 import android.provider.MediaStore
 import android.provider.OpenableColumns
 import android.util.Base64
+import com.example.data.network.CompressionUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
@@ -158,15 +159,49 @@ object FileAttachmentUtils {
                     destFile.outputStream().use { dst -> src.copyTo(dst) }
                 }
                 val localUri = Uri.fromFile(destFile).toString()
+                val fileSize = destFile.length()
+                val transportData = if (fileSize in 1L..(2L * 1024L * 1024L)) {
+                    val compressed = CompressionUtils.compressBytes(destFile.readBytes())
+                    if (compressed.size <= 420 * 1024) {
+                        "gzb64:" + Base64.encodeToString(compressed, Base64.NO_WRAP)
+                    } else {
+                        localUri
+                    }
+                } else {
+                    localUri
+                }
                 return@withContext EmbeddedAttachmentResult(
                     localFileUri = localUri,
-                    transportData = localUri,
+                    transportData = transportData,
                     displayName = rawName,
                     mimeType = mimeType,
-                    sizeBytes = destFile.length(),
+                    sizeBytes = fileSize,
                     isImage = false
                 )
             }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    fun materializeTransportData(
+        context: Context,
+        transportUri: String?,
+        fileNameHint: String? = null
+    ): String? {
+        if (transportUri.isNullOrBlank()) return null
+        if (!transportUri.startsWith("gzb64:")) return transportUri
+        return try {
+            val encoded = transportUri.removePrefix("gzb64:")
+            val compressedBytes = Base64.decode(encoded, Base64.DEFAULT)
+            val restoredBytes = CompressionUtils.decompressBytes(compressedBytes)
+            val mediaDir = File(context.filesDir, "clestra_media").apply { mkdirs() }
+            val safeName = (fileNameHint ?: "attachment.bin")
+                .replace(Regex("[^A-Za-z0-9._-]"), "_")
+                .ifBlank { "attachment.bin" }
+            val outFile = File(mediaDir, "recv_${UUID.randomUUID()}_$safeName")
+            outFile.writeBytes(restoredBytes)
+            Uri.fromFile(outFile).toString()
         } catch (_: Exception) {
             null
         }
@@ -282,6 +317,10 @@ object FileAttachmentUtils {
     }
 
     private fun readAllBytes(context: Context, uriString: String): ByteArray? {
+        if (uriString.startsWith("gzb64:")) {
+            val b64 = uriString.removePrefix("gzb64:")
+            return CompressionUtils.decompressBytes(Base64.decode(b64, Base64.DEFAULT))
+        }
         if (uriString.startsWith("data:") && uriString.contains("base64,")) {
             val b64 = uriString.substringAfter("base64,")
             return Base64.decode(b64, Base64.DEFAULT)

@@ -74,10 +74,11 @@ object ClestraBotActionEngine {
         val raw = userMessage.trim()
         if (raw.isEmpty()) return null
 
-        // 1. Add contact: "add contact CLS-XXXX [as Name]"
-        Regex("""^(?:add|create)\s+(?:contact|peer|chat)\s+(CLS-[A-Za-z0-9-]+)(?:\s+(?:as|named|name)\s+(.+))?$""", RegexOption.IGNORE_CASE)
+        // 1. Add contact: "add contact CLS-XXXX [as Name]" or "add contact dev [as Name]"
+        Regex("""^(?:add|create)\s+(?:contact|peer|chat)\s+(dev|CLS-[A-Za-z0-9-]+)(?:\s+(?:as|named|name)\s+(.+))?$""", RegexOption.IGNORE_CASE)
             .matchEntire(raw)?.let { m ->
-                val id = m.groupValues[1].uppercase()
+                val rawId = m.groupValues[1]
+                val id = if (rawId.equals("dev", ignoreCase = true)) "dev" else rawId.uppercase()
                 val name = m.groupValues[2].trim().ifBlank { null }
                 return "Adding contact **$id** now." to listOf(
                     BotActionDirective(action = "add_contact", peer = id, name = name)

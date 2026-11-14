@@ -18,6 +18,7 @@ import com.example.data.network.OpenRouterMessage
 import com.example.data.network.RelayKeepaliveJobService
 import com.example.data.security.InternalVault
 import com.example.ui.components.CustomTagCodec
+import com.example.ui.components.FileAttachmentUtils
 import com.example.ui.components.StickerStorageUtils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -286,7 +287,32 @@ class ChatRepository(
             activeTag = unlocked,
             unlockedTags = updatedList.joinToString(",")
         )
+        if (targetName == "DEV") {
+            accountDao.updateAccountId("dev")
+            RelayKeepaliveJobService.saveRelayConfig(context, serverlessUrl.value, "dev")
+            return true to "DEV unlocked! Dev Account active — Clestra ID changed to dev."
+        }
         return true to "$targetName tag unlocked and activated!"
+    }
+
+    suspend fun equipPublicTag(tag: String): Pair<Boolean, String> {
+        if (tag !in CustomTagCodec.publicStarterTags) {
+            return false to "Public badge unavailable"
+        }
+        val account = accountDao.getAccount() ?: return false to "Account not ready"
+        val targetName = CustomTagCodec.extractTagName(tag)
+        val updatedList = account.unlockedTags
+            .split(",")
+            .map { it.trim() }
+            .filter { it.isNotEmpty() && CustomTagCodec.extractTagName(it) != targetName }
+            .toMutableList()
+        updatedList.add(tag)
+
+        accountDao.updateAccountTags(
+            activeTag = tag,
+            unlockedTags = updatedList.joinToString(",")
+        )
+        return true to "$targetName badge equipped!"
     }
 
     suspend fun selectActiveTag(tag: String?) {
@@ -300,6 +326,10 @@ class ChatRepository(
             activeTag = target,
             unlockedTags = currentList.joinToString(",")
         )
+        if (target != null && CustomTagCodec.extractTagName(target) == "DEV" && account.id != "dev") {
+            accountDao.updateAccountId("dev")
+            RelayKeepaliveJobService.saveRelayConfig(context, serverlessUrl.value, "dev")
+        }
     }
 
     suspend fun getCurrentAccount(): UserAccountEntity? = accountDao.getAccount()
@@ -617,9 +647,10 @@ class ChatRepository(
                 val query = directive.peer ?: return "Skipped: missing peer for send_message."
                 val text = directive.text ?: return "Skipped: missing message text."
                 var target = findPeerByQuery(query)
-                if (target == null && query.startsWith("CLS-", ignoreCase = true)) {
-                    addPeer(query.uppercase(), directive.name ?: query.uppercase())
-                    target = findPeerByQuery(query)
+                if (target == null && (query.startsWith("CLS-", ignoreCase = true) || query.equals("dev", ignoreCase = true))) {
+                    val normId = CustomTagCodec.normalizePeerId(query)
+                    addPeer(normId, directive.name ?: normId)
+                    target = findPeerByQuery(normId)
                 }
                 if (target == null) {
                     "Could not find contact '$query'."
@@ -781,8 +812,9 @@ class ChatRepository(
             }
 
             "add_contact" -> {
-                val id = directive.peer?.trim()?.uppercase()
+                val rawPeer = directive.peer?.trim()
                     ?: return "Please provide a Clestra ID (`CLS-...`)."
+                val id = CustomTagCodec.normalizePeerId(rawPeer)
                 val name = directive.name?.trim()?.ifBlank { null } ?: id
                 addPeer(id, name)
                 "Added contact **$name** (`$id`)."
@@ -1126,7 +1158,7 @@ Tap **Full** on any code box to inspect all lines with line numbers!
     }
 
     suspend fun addPeer(peerId: String, name: String, avatarIcon: String = "🍑") {
-        val cleanId = peerId.trim().uppercase()
+        val cleanId = CustomTagCodec.normalizePeerId(peerId)
         val existing = peerDao.getPeer(cleanId)
         if (existing != null) return
 
@@ -1245,10 +1277,13 @@ Tap **Full** on any code box to inspect all lines with line numbers!
     private fun decodeIncomingPayload(decrypted: String): DecodedIncomingPayload {
         if (decrypted.startsWith("FILE::")) {
             val parts = decrypted.removePrefix("FILE::").split("::", limit = 4)
+            val fileName = parts.getOrNull(0)?.ifBlank { "Attachment" } ?: "Attachment"
+            val rawUri = parts.getOrNull(1)?.takeIf { it.isNotBlank() }
+            val materializedUri = FileAttachmentUtils.materializeTransportData(context, rawUri, fileName) ?: rawUri
             return DecodedIncomingPayload(
                 type = "FILE",
-                content = parts.getOrNull(0)?.ifBlank { "Attachment" } ?: "Attachment",
-                uri = parts.getOrNull(1)?.takeIf { it.isNotBlank() },
+                content = fileName,
+                uri = materializedUri,
                 mimeType = parts.getOrNull(2)?.takeIf { it.isNotBlank() },
                 sizeBytes = parts.getOrNull(3)?.toLongOrNull() ?: 0L
             )

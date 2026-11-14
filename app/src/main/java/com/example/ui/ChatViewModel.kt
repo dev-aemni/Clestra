@@ -13,6 +13,7 @@ import com.example.data.network.GifItem
 import com.example.data.network.GifProvider
 import com.example.data.network.GifProviderManager
 import com.example.data.repository.ChatRepository
+import com.example.ui.components.CustomTagCodec
 import com.example.ui.components.FileAttachmentUtils
 import com.example.ui.components.StickerStorageUtils
 import kotlinx.coroutines.Dispatchers
@@ -183,6 +184,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun equipPublicTag(tag: String) {
+        viewModelScope.launch {
+            _redeemStatus.value = repository.equipPublicTag(tag)
+        }
+    }
+
     fun selectActiveTag(tag: String?) {
         viewModelScope.launch {
             repository.selectActiveTag(tag)
@@ -198,7 +205,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         displayNameInput: String = "",
         onReady: (String) -> Unit = {}
     ) {
-        val cleanId = peerIdInput.trim().uppercase()
+        val cleanId = CustomTagCodec.normalizePeerId(peerIdInput)
         if (cleanId.isBlank()) return
         val name = displayNameInput.trim().ifBlank { cleanId }
         viewModelScope.launch {

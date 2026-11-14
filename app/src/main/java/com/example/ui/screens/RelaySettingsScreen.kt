@@ -21,7 +21,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Cloud
-import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Key
@@ -89,48 +88,6 @@ fun RelaySettingsScreen(
 
     val myId = account?.id ?: "CLS-CONNECTING"
     val myName = account?.displayName ?: "Clestra User"
-
-    val serverlessSnippet = remember {
-        """
-// Clestra Serverless Offline Relay (Vercel / Netlify / Node.js)
-const { MongoClient } = require('mongodb');
-let cachedClient = null;
-
-async function getDb() {
-  if (!cachedClient) {
-    cachedClient = new MongoClient(process.env.MONGODB_URI);
-    await cachedClient.connect();
-  }
-  return cachedClient.db('clestra_relay');
-}
-
-module.exports = async (req, res) => {
-  const db = await getDb();
-  const col = db.collection('pending_messages');
-
-  if (req.method === 'POST') {
-    const { senderId, recipientId, compressedContent, timestamp, pulse } = req.body;
-    const doc = { senderId, recipientId, compressedContent, timestamp, delivered: false };
-    const result = await col.insertOne(doc);
-    // Keepalive signal: verify active DB connection then delete instantly (0 bytes kept)
-    if (pulse === true || compressedContent === 'PULSE') {
-      await col.deleteOne({ _id: result.insertedId });
-      return res.status(200).json({ success: true, status: 'pulse_deleted' });
-    }
-    return res.status(201).json({ success: true, status: 'queued_offline_serverless' });
-  }
-
-  if (req.method === 'GET') {
-    const recipientId = req.query.recipientId;
-    const pending = await col.find({ recipientId }).sort({ timestamp: 1 }).toArray();
-    if (pending.length > 0) {
-      await col.deleteMany({ _id: { ${'$'}in: pending.map(m => m._id) } });
-    }
-    return res.status(200).json({ success: true, count: pending.length, messages: pending });
-  }
-};
-        """.trimIndent()
-    }
 
     ClestraWallpaperBox(
         intensePattern = false,
@@ -218,9 +175,10 @@ module.exports = async (req, res) => {
                             )
                             Spacer(Modifier.width(4.dp))
                             Text(
-                                text = "Permanent Clestra ID",
+                                text = if (myId == "dev") "Dev Account • Active Clestra ID" else "Permanent Clestra ID",
                                 fontSize = 11.sp,
-                                color = ClestraTextSoft
+                                color = if (myId == "dev") ClestraOnline else ClestraTextSoft,
+                                fontWeight = if (myId == "dev") FontWeight.SemiBold else FontWeight.Normal
                             )
                         }
 
@@ -521,81 +479,6 @@ module.exports = async (req, res) => {
                                     Text("Pull Queued Messages Now", color = Color.White, fontWeight = FontWeight.Bold)
                                 }
                             }
-                        }
-                    }
-                }
-            }
-
-            item {
-                NeumorphicCard(
-                    cornerRadius = 20.dp,
-                    elevation = 6.dp,
-                    containerColor = ClestraNeuSurface,
-                    contentPadding = PaddingValues(16.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    Icons.Default.Code,
-                                    contentDescription = null,
-                                    tint = ClestraCopper,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(Modifier.width(8.dp))
-                                Text(
-                                    text = "Node.js Serverless API",
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = ClestraCharcoal
-                                )
-                            }
-
-                            IconButton(
-                                onClick = {
-                                    clipboard.setText(AnnotatedString(serverlessSnippet))
-                                    Toast.makeText(context, "Serverless code copied!", Toast.LENGTH_SHORT).show()
-                                },
-                                modifier = Modifier
-                                    .size(38.dp)
-                                    .neumorphicRaised(
-                                        cornerRadius = 12.dp,
-                                        elevation = 3.dp,
-                                        containerColor = ClestraNeuSurface
-                                    )
-                                    .testTag("copy_snippet_button")
-                            ) {
-                                Icon(
-                                    Icons.Default.ContentCopy,
-                                    contentDescription = "Copy Code",
-                                    tint = ClestraCopper,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-                        }
-
-                        Spacer(Modifier.height(10.dp))
-
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .neumorphicPressed(
-                                    cornerRadius = 14.dp,
-                                    containerColor = ClestraCharcoal
-                                )
-                                .padding(12.dp)
-                        ) {
-                            Text(
-                                text = serverlessSnippet,
-                                fontFamily = FontFamily.Monospace,
-                                fontSize = 10.sp,
-                                color = ClestraBubbleSent
-                            )
                         }
                     }
                 }

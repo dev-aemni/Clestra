@@ -237,92 +237,148 @@ fun SoftUiBadgeTag(
     label: String,
     modifier: Modifier = Modifier
 ) {
-    val (displayName, customArgb) = CustomTagCodec.parseDisplayTag(label)
-    val (bgColor, textColor, accentRim) = if (customArgb != null) {
-        val bg = Color(customArgb)
-        val r = bg.red
-        val g = bg.green
-        val b = bg.blue
-        val luminance = 0.299f * r + 0.587f * g + 0.114f * b
-        val ink = if (luminance > 0.58f) Color(0xFF14110F) else Color.White
-        val rim = Color(
-            red = (r * 0.82f).coerceIn(0f, 1f),
-            green = (g * 0.82f).coerceIn(0f, 1f),
-            blue = (b * 0.82f).coerceIn(0f, 1f),
-            alpha = 0.65f
-        )
-        Triple(bg, ink, rim)
+    val spec = CustomTagCodec.parseDisplayTagSpec(label)
+    val displayName = spec.name
+
+    val defaultPalette: Triple<Color, Color?, Color> = when (displayName) {
+        "DEV" -> Triple(Color(0xFFBDF7CA), Color(0xFF8BE8A2), Color(0xFF0E2914))
+        "OFFICIAL" -> Triple(Color(0xFFFFFFFF), null, Color(0xFF14110F))
+        "BOT" -> Triple(Color(0xFFEEF3FB), null, Color(0xFF1A2538))
+        "VIP", "FOUNDER" -> Triple(Color(0xFFFFF4DC), Color(0xFFF6DFA9), Color(0xFF2B1C0E))
+        "PIONEER" -> Triple(Color(0xFFE3F4FF), Color(0xFFBFE2FA), Color(0xFF102A3A))
+        else -> Triple(Color(0xFFFFFFFF), null, Color(0xFF14110F))
+    }
+
+    val startColor = spec.primaryArgb?.let { Color(it) } ?: defaultPalette.first
+    val endColor = spec.secondaryArgb?.let { Color(it) } ?: defaultPalette.second
+    val textColor = if (spec.primaryArgb != null) {
+        val avgR = if (endColor != null) (startColor.red + endColor.red) * 0.5f else startColor.red
+        val avgG = if (endColor != null) (startColor.green + endColor.green) * 0.5f else startColor.green
+        val avgB = if (endColor != null) (startColor.blue + endColor.blue) * 0.5f else startColor.blue
+        val luminance = 0.299f * avgR + 0.587f * avgG + 0.114f * avgB
+        if (luminance > 0.58f) Color(0xFF14110F) else Color.White
     } else {
-        when (displayName) {
-            "DEV" -> Triple(Color(0xFFBDF7CA), Color(0xFF0E2914), Color(0xFF6CD984))
-            "OFFICIAL" -> Triple(Color.White, Color(0xFF14110F), null)
-            "BOT" -> Triple(Color(0xFFEEF3FB), Color(0xFF1A2538), Color(0xFFBDCEF0))
-            "VIP", "FOUNDER" -> Triple(Color(0xFFFFF4DC), Color(0xFF2B1C0E), Color(0xFFE7C780))
-            "PIONEER" -> Triple(Color(0xFFE3F4FF), Color(0xFF102A3A), Color(0xFFA7D4F5))
-            else -> Triple(Color.White, Color(0xFF14110F), null)
-        }
+        defaultPalette.third
+    }
+
+    val pillShape = RoundedCornerShape(50)
+    val bgModifier = if (endColor != null) {
+        Modifier.background(
+            brush = androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(startColor, endColor)),
+            shape = pillShape
+        )
+    } else {
+        Modifier.background(color = startColor, shape = pillShape)
     }
 
     Box(
         modifier = modifier
             .neumorphicRaised(
                 cornerRadius = 50.dp,
-                elevation = 2.5.dp,
-                containerColor = bgColor,
-                accentBorderColor = accentRim
+                elevation = 2.dp,
+                containerColor = startColor,
+                accentBorderColor = (endColor ?: startColor).copy(alpha = 0.45f)
             )
-            .padding(horizontal = 8.dp, vertical = 2.5.dp),
+            .clip(pillShape)
+            .then(bgModifier)
+            .padding(horizontal = 9.dp, vertical = 3.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = displayName,
             color = textColor,
-            fontSize = 9.sp,
-            fontWeight = FontWeight.SemiBold,
-            letterSpacing = 0.7.sp,
+            fontSize = 9.5.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 0.65.sp,
             maxLines = 1
         )
     }
 }
 
+data class TagVisualSpec(
+    val name: String,
+    val primaryArgb: Long?,
+    val secondaryArgb: Long? = null
+)
+
 object CustomTagCodec {
-    private val customTagRegex = Regex(
+    val publicStarterTags: List<String> = listOf(
+        "MEMBER|#ECE5DD",
+        "CHILL|#DCEEE2",
+        "NIGHT|#2B2D42",
+        "AURORA|#FF8A5B|#845EC2",
+        "OCEAN|#00B4D8|#0077B6"
+    )
+
+    private val customSolidRegex = Regex(
         pattern = "^tag:([^@|,]{1,18})@#?([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$",
         option = RegexOption.IGNORE_CASE
     )
 
+    private val customGradientRegex = Regex(
+        pattern = "^tag:([^@|,]{1,18})@#?([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})[-,>]#?([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$",
+        option = RegexOption.IGNORE_CASE
+    )
+
+    private fun normalizeHex(rawHex: String): String? {
+        val clean = rawHex.trim().removePrefix("#").uppercase()
+        return when (clean.length) {
+            3 -> "${clean[0]}${clean[0]}${clean[1]}${clean[1]}${clean[2]}${clean[2]}"
+            6, 8 -> clean
+            else -> null
+        }
+    }
+
+    private fun hexToArgbLong(hex: String?): Long? {
+        val clean = hex?.trim()?.removePrefix("#") ?: return null
+        return when (clean.length) {
+            6 -> clean.toLongOrNull(16)?.or(0xFF000000L)
+            8 -> clean.toLongOrNull(16)
+            else -> null
+        }
+    }
+
     /**
-     * Parses `tag:name@hexcolor` or `tag:name@#hexcolor` into `"NAME|#RRGGBB"` (or `"NAME|#AARRGGBB"`).
-     * Returns null if input does not match the custom hex tag syntax.
+     * Parses `tag:name@#HEX` (solid) or `tag:name@#HEX1-#HEX2` (gradient)
+     * into `"NAME|#RRGGBB"` or `"NAME|#RRGGBB|#RRGGBB"`.
      */
     fun parseCustomRedeemTag(raw: String): String? {
-        val match = customTagRegex.matchEntire(raw.trim()) ?: return null
-        val name = match.groupValues[1].trim().uppercase()
-        if (name.isEmpty()) return null
-        val rawHex = match.groupValues[2].uppercase()
-        val normalizedHex = when (rawHex.length) {
-            3 -> "${rawHex[0]}${rawHex[0]}${rawHex[1]}${rawHex[1]}${rawHex[2]}${rawHex[2]}"
-            6, 8 -> rawHex
-            else -> return null
+        val trimmed = raw.trim()
+        customGradientRegex.matchEntire(trimmed)?.let { m ->
+            val name = m.groupValues[1].trim().uppercase()
+            if (name.isEmpty()) return null
+            val h1 = normalizeHex(m.groupValues[2]) ?: return null
+            val h2 = normalizeHex(m.groupValues[3]) ?: return null
+            return "$name|#$h1|#$h2"
         }
-        return "$name|#$normalizedHex"
+        customSolidRegex.matchEntire(trimmed)?.let { m ->
+            val name = m.groupValues[1].trim().uppercase()
+            if (name.isEmpty()) return null
+            val h1 = normalizeHex(m.groupValues[2]) ?: return null
+            return "$name|#$h1"
+        }
+        return null
     }
 
     fun extractTagName(stored: String): String =
         stored.substringBefore('|').trim().uppercase()
 
     fun parseDisplayTag(stored: String): Pair<String, Long?> {
-        val parts = stored.split('|', limit = 2)
+        val spec = parseDisplayTagSpec(stored)
+        return spec.name to spec.primaryArgb
+    }
+
+    fun parseDisplayTagSpec(stored: String): TagVisualSpec {
+        val parts = stored.split('|')
         val name = parts[0].trim().uppercase()
-        val hexPart = parts.getOrNull(1)?.trim()?.removePrefix("#")
-        val argb = if (hexPart != null) {
-            when (hexPart.length) {
-                6 -> hexPart.toLongOrNull(16)?.or(0xFF000000L)
-                8 -> hexPart.toLongOrNull(16)
-                else -> null
-            }
-        } else null
-        return name to argb
+        val primary = hexToArgbLong(parts.getOrNull(1))
+        val secondary = hexToArgbLong(parts.getOrNull(2))
+        return TagVisualSpec(name = name, primaryArgb = primary, secondaryArgb = secondary)
+    }
+
+    fun normalizePeerId(rawId: String): String {
+        val clean = rawId.trim()
+        return if (clean.equals("dev", ignoreCase = true)) "dev" else clean.uppercase()
     }
 }
 
