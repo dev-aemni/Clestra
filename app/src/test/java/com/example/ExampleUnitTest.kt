@@ -297,4 +297,58 @@ class ExampleUnitTest {
         )
         assertFalse(com.example.ui.components.isHtmlPreviewable("kotlin", "fun main() = println(\"hi\")"))
     }
+
+    @Test
+    fun testOpenRouterMultimodalSerializationAndVisionModelSelection() {
+        val req = com.example.data.network.OpenRouterRequest(
+            model = "openrouter/free",
+            messages = listOf(
+                com.example.data.network.OpenRouterMessage(role = "system", text = "You are Clestra."),
+                com.example.data.network.OpenRouterMessage(
+                    role = "user",
+                    content = com.example.data.network.OpenRouterContent.Parts(
+                        listOf(
+                            com.example.data.network.OpenRouterContentPart.text("Describe this photo"),
+                            com.example.data.network.OpenRouterContentPart.imageUrl("data:image/jpeg;base64,QUJD")
+                        )
+                    )
+                )
+            )
+        )
+        val adapter = com.example.data.network.OpenRouterClient.moshi.adapter(
+            com.example.data.network.OpenRouterRequest::class.java
+        )
+        val json = adapter.toJson(req)
+        assertTrue(json.contains("\"model\":\"openrouter/free\""))
+        assertTrue(json.contains("\"content\":\"You are Clestra.\""))
+        assertTrue(json.contains("\"type\":\"image_url\""))
+        assertTrue(json.contains("\"url\":\"data:image/jpeg;base64,QUJD\""))
+
+        val models = listOf(
+            com.example.data.network.OpenRouterModelInfo(
+                id = "text-only/model:free",
+                architecture = com.example.data.network.OpenRouterModelArchitecture(listOf("text")),
+                pricing = com.example.data.network.OpenRouterModelPricing("0")
+            ),
+            com.example.data.network.OpenRouterModelInfo(
+                id = "paid/vision-pro",
+                architecture = com.example.data.network.OpenRouterModelArchitecture(listOf("text", "image")),
+                pricing = com.example.data.network.OpenRouterModelPricing("0.002")
+            ),
+            com.example.data.network.OpenRouterModelInfo(
+                id = "nvidia/nemotron-3.5-super-vl:free",
+                architecture = com.example.data.network.OpenRouterModelArchitecture(listOf("text", "image")),
+                pricing = com.example.data.network.OpenRouterModelPricing("0")
+            ),
+            com.example.data.network.OpenRouterModelInfo(
+                id = "google/gemma-3-27b-it:free",
+                architecture = com.example.data.network.OpenRouterModelArchitecture(listOf("text", "image")),
+                pricing = com.example.data.network.OpenRouterModelPricing("0")
+            )
+        )
+        val selected = com.example.data.network.OpenRouterClient.selectFreeVisionModels(models)
+        assertEquals(2, selected.size)
+        assertEquals("google/gemma-3-27b-it:free", selected[0])
+        assertEquals("nvidia/nemotron-3.5-super-vl:free", selected[1])
+    }
 }

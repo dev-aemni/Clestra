@@ -1,6 +1,7 @@
 package com.example.data.repository
 
 import android.content.Context
+import android.util.Base64
 import com.example.BuildConfig
 import com.example.data.db.AppDatabase
 import com.example.data.model.ClestraIdGenerator
@@ -14,9 +15,12 @@ import com.example.data.network.CryptoUtils
 import com.example.data.network.NetworkClient
 import com.example.data.network.NotificationHelper
 import com.example.data.network.OpenRouterClient
+import com.example.data.network.OpenRouterContent
+import com.example.data.network.OpenRouterContentPart
 import com.example.data.network.OpenRouterMessage
 import com.example.data.network.RelayKeepaliveJobService
 import com.example.data.security.InternalVault
+import com.example.ui.components.ClestraFileKind
 import com.example.ui.components.CustomTagCodec
 import com.example.ui.components.FileAttachmentUtils
 import com.example.ui.components.StickerStorageUtils
@@ -388,7 +392,17 @@ class ChatRepository(
         val embeddedUri = transportMediaUri ?: mediaUri.orEmpty()
         val transportPlaintext = when (effectiveType) {
             "TEXT" -> effectiveContent
-            "FILE" -> "FILE::$effectiveContent::$embeddedUri::${attachmentMimeType.orEmpty()}::$attachmentSizeBytes"
+            "FILE" -> {
+                val fileNamePart = attachmentName ?: effectiveContent
+                val captionB64 = if (effectiveContent.isNotBlank() && effectiveContent != fileNamePart) {
+                    Base64.encodeToString(effectiveContent.toByteArray(Charsets.UTF_8), Base64.NO_WRAP)
+                } else ""
+                if (captionB64.isNotEmpty()) {
+                    "FILE::$fileNamePart::$embeddedUri::${attachmentMimeType.orEmpty()}::$attachmentSizeBytes::$captionB64"
+                } else {
+                    "FILE::$fileNamePart::$embeddedUri::${attachmentMimeType.orEmpty()}::$attachmentSizeBytes"
+                }
+            }
             "VOICE" -> "VOICE::$effectiveContent::$embeddedUri::${attachmentMimeType.orEmpty()}::$attachmentSizeBytes"
             else -> "$effectiveType::$effectiveContent::$embeddedUri"
         }
@@ -427,7 +441,11 @@ class ChatRepository(
             "STICKER" -> "Sticker"
             "VOICE" -> effectiveContent.ifBlank { "Voice message" }
             "IMAGE" -> if (content.isNotBlank() && content != "Photo attachment") "Photo: $content" else "Photo"
-            "FILE" -> "File: ${attachmentName ?: effectiveContent}"
+            "FILE" -> if (effectiveContent.isNotBlank() && effectiveContent != attachmentName) {
+                "File (${attachmentName ?: "attachment"}): $effectiveContent"
+            } else {
+                "File: ${attachmentName ?: effectiveContent}"
+            }
             else -> effectiveContent
         }
 
@@ -458,12 +476,16 @@ class ChatRepository(
                 "GIF" -> "[User sent a GIF: $effectiveContent]"
                 "STICKER" -> "[User sent a sticker: $effectiveContent]"
                 "VOICE" -> "[User sent a voice note: $effectiveContent]"
-                "IMAGE" -> "[User sent an embedded photo]"
-                "FILE" -> "[User shared file: ${attachmentName ?: effectiveContent}]"
+                "IMAGE" -> if (effectiveContent.isNotBlank() && effectiveContent != "Photo attachment") effectiveContent else "[User sent an image]"
+                "FILE" -> if (effectiveContent.isNotBlank() && effectiveContent != attachmentName) {
+                    "[File: ${attachmentName ?: "attachment"}]\n$effectiveContent"
+                } else {
+                    "[User shared file: ${attachmentName ?: effectiveContent}]"
+                }
                 else -> effectiveContent
             }
             scope.launch {
-                replyAsClestraBot(myAccount, botPromptText)
+                replyAsClestraBot(myAccount, botPromptText, triggerMessage = message)
             }
         } else {
             scope.launch {
@@ -476,7 +498,8 @@ class ChatRepository(
 
     private suspend fun replyAsClestraBot(
         userAccount: UserAccountEntity?,
-        userMessage: String
+        userMessage: String,
+        triggerMessage: MessageEntity? = null
     ) {
         _isBotTyping.value = true
         try {
@@ -484,52 +507,138 @@ class ChatRepository(
             val userName = freshAccount?.displayName ?: "Friend"
             val userId = freshAccount?.id ?: "CLS-USER"
 
-            val recent = messageDao.getRecentMessages(OFFICIAL_BOT_ID, 12)
+            val recentEntities = messageDao.getRecentMessages(OFFICIAL_BOT_ID, 12)
                 .reversed()
-                .map { msg ->
-                    OpenRouterMessage(
-                        role = if (msg.isOutgoing) "user" else "assistant",
-                        content = msg.content
-                    )
+                .let { list ->
+                    if (triggerMessage != null && list.none { it.id == triggerMessage.id }) {
+                        list + triggerMessage
+                    } else {
+                        list
+                    }
                 }
+
+            // Embed up to the 2 most recent images in context (always including any current image)
+            val imageIdsToEmbed = recentEntities
+                .filter { it.isOutgoing && it.messageType == "IMAGE" && !it.mediaUri.isNullOrBlank() }
+                .takeLast(2)
+                .map { it.id }
+                .toSet()
+
+            var hasImages = false
+            val recent = recentEntities.map { msg ->
+                val role = if (msg.isOutgoing) "user" else "assistant"
+                when {
+                    msg.isOutgoing && msg.messageType == "IMAGE" && msg.id in imageIdsToEmbed -> {
+                        val dataUrl = FileAttachmentUtils.encodeImageAsDataUrl(context, msg.mediaUri)
+                        val caption = msg.content.takeIf { it.isNotBlank() && it != "Photo attachment" }
+                            ?: "Please inspect and analyze this image carefully and help with what is shown."
+                        if (dataUrl != null) {
+                            hasImages = true
+                            OpenRouterMessage(
+                                role = role,
+                                content = OpenRouterContent.Parts(
+                                    listOf(
+                                        OpenRouterContentPart.text(caption),
+                                        OpenRouterContentPart.imageUrl(dataUrl)
+                                    )
+                                )
+                            )
+                        } else {
+                            OpenRouterMessage(role = role, text = "[User shared an image: ${msg.attachmentName ?: "photo"}] $caption")
+                        }
+                    }
+
+                    msg.isOutgoing && msg.messageType == "FILE" -> {
+                        val fileName = msg.attachmentName ?: msg.content
+                        val caption = if (msg.content.isNotBlank() && msg.content != fileName) msg.content else ""
+                        val kind = FileAttachmentUtils.classifyFileKind(fileName, msg.attachmentMimeType)
+                        val fileSnippet = if (kind == ClestraFileKind.CODE_OR_TEXT && !msg.mediaUri.isNullOrBlank()) {
+                            FileAttachmentUtils.readTextFileContent(context, msg.mediaUri, maxChars = 6_000)
+                        } else null
+                        val prompt = buildString {
+                            append("Attached file: ").append(fileName)
+                            if (caption.isNotBlank()) {
+                                append("\nUser message: ").append(caption)
+                            }
+                            if (!fileSnippet.isNullOrBlank()) {
+                                val lang = FileAttachmentUtils.inferCodeLanguage(fileName)
+                                append("\n\nFile content:\n```").append(lang).append('\n')
+                                append(fileSnippet).append("\n```")
+                            }
+                        }
+                        OpenRouterMessage(role = role, text = prompt)
+                    }
+
+                    else -> OpenRouterMessage(role = role, text = msg.content)
+                }
+            }
 
             val workspaceContext = buildLiveWorkspaceSnapshot(freshAccount)
             val systemPrompt = buildString {
                 append(OpenRouterClient.buildClestraSystemPrompt(userName, userId))
+                if (hasImages) {
+                    append("\n\nMULTIMODAL VISION ACTIVE: You can see images attached by the user. Inspect visual details, text/OCR in screenshots, math/code, diagrams, and answer accurately.")
+                }
                 append("\n\n")
                 append(workspaceContext)
             }
 
             val requestMessages = buildList {
-                add(OpenRouterMessage(role = "system", content = systemPrompt))
+                add(OpenRouterMessage(role = "system", text = systemPrompt))
                 if (recent.isEmpty()) {
-                    add(OpenRouterMessage(role = "user", content = userMessage))
+                    add(OpenRouterMessage(role = "user", text = userMessage))
                 } else {
                     addAll(recent)
                 }
             }
 
-            val rawModelReply: String? = if (openRouterApiKey.isBlank() || openRouterApiKey == "MY_OPENROUTER_API_KEY") {
+            val hasApiKey = openRouterApiKey.isNotBlank() && openRouterApiKey != "MY_OPENROUTER_API_KEY"
+            var lastApiError: String? = null
+
+            val rawModelReply: String? = if (!hasApiKey) {
                 null
             } else {
-                try {
-                    val response = OpenRouterClient.service.chatCompletion(
-                        authorization = "Bearer $openRouterApiKey",
-                        referer = InternalVault.refererHeader(),
-                        request = com.example.data.network.OpenRouterRequest(
-                            model = OpenRouterClient.MODEL_ID,
-                            messages = requestMessages
+                suspend fun callModel(modelId: String): String? {
+                    return try {
+                        val response = OpenRouterClient.service.chatCompletion(
+                            authorization = "Bearer $openRouterApiKey",
+                            referer = InternalVault.refererHeader(),
+                            request = com.example.data.network.OpenRouterRequest(
+                                model = modelId,
+                                messages = requestMessages
+                            )
                         )
-                    )
-                    response.choices
-                        ?.firstOrNull()
-                        ?.message
-                        ?.content
-                        ?.trim()
-                        ?.takeIf { it.isNotBlank() }
-                } catch (_: Exception) {
-                    null
+                        response.choices
+                            ?.firstOrNull()
+                            ?.message
+                            ?.textContent()
+                    } catch (e: retrofit2.HttpException) {
+                        val errBody = try { e.response()?.errorBody()?.string()?.take(180) } catch (_: Exception) { null }
+                        lastApiError = "HTTP ${e.code()}${if (!errBody.isNullOrBlank()) ": $errBody" else ""}"
+                        null
+                    } catch (e: Exception) {
+                        lastApiError = e.localizedMessage ?: "Network error"
+                        null
+                    }
                 }
+
+                // 1. Try primary configured OpenRouter model (openrouter/free supports multimodal image_url routing)
+                var answer = callModel(OpenRouterClient.MODEL_ID)
+
+                // 2. If request includes image(s) and primary router failed, discover & try active free vision models
+                if (answer == null && hasImages) {
+                    val discoveredVisionModels = try {
+                        val catalog = OpenRouterClient.service.listModels().data.orEmpty()
+                        OpenRouterClient.selectFreeVisionModels(catalog).take(4)
+                    } catch (_: Exception) {
+                        emptyList()
+                    }
+                    for (visionModel in discoveredVisionModels) {
+                        answer = callModel(visionModel)
+                        if (answer != null) break
+                    }
+                }
+                answer
             }
 
             val replyText = if (rawModelReply != null) {
@@ -540,6 +649,12 @@ class ChatRepository(
                     execLogs.isEmpty() -> baseProse
                     baseProse.isBlank() -> execLogs.joinToString("\n")
                     else -> "$baseProse\n\n${execLogs.joinToString("\n")}"
+                }
+            } else if (triggerMessage?.messageType == "IMAGE" || hasImages) {
+                if (!hasApiKey) {
+                    "I received your image, but AI image analysis is not active right now."
+                } else {
+                    "I couldn't process this image right now (${lastApiError ?: "please try again in a moment"})."
                 }
             } else {
                 val offlineCmd = ClestraBotActionEngine.parseOfflineCommand(userMessage)
@@ -963,7 +1078,11 @@ Tap **Full** on any code box to inspect all lines with line numbers!
                             isOutgoing = false,
                             mediaUri = decoded.uri,
                             messageType = decoded.type,
-                            attachmentName = if (decoded.type == "FILE" || decoded.type == "VOICE") decoded.content else null,
+                            attachmentName = when (decoded.type) {
+                                "FILE" -> decoded.attachmentName ?: decoded.content
+                                "VOICE" -> decoded.content
+                                else -> null
+                            },
                             attachmentMimeType = decoded.mimeType,
                             attachmentSizeBytes = decoded.sizeBytes
                         )
@@ -1149,7 +1268,7 @@ Tap **Full** on any code box to inspect all lines with line numbers!
             val health = service.getHealth()
             "Connected (${health.service ?: "Clestra Cloud"})"
         } catch (_: Exception) {
-            "Unable to reach server — check internet or endpoint URL"
+            "Unable to connect — please check your internet connection"
         }
     }
 
@@ -1158,21 +1277,33 @@ Tap **Full** on any code box to inspect all lines with line numbers!
         val content: String,
         val uri: String?,
         val mimeType: String? = null,
-        val sizeBytes: Long = 0L
+        val sizeBytes: Long = 0L,
+        val attachmentName: String? = null
     )
 
     private fun decodeIncomingPayload(decrypted: String): DecodedIncomingPayload {
         if (decrypted.startsWith("FILE::")) {
-            val parts = decrypted.removePrefix("FILE::").split("::", limit = 4)
+            val parts = decrypted.removePrefix("FILE::").split("::", limit = 5)
             val fileName = parts.getOrNull(0)?.ifBlank { "Attachment" } ?: "Attachment"
             val rawUri = parts.getOrNull(1)?.takeIf { it.isNotBlank() }
             val materializedUri = FileAttachmentUtils.materializeTransportData(context, rawUri, fileName) ?: rawUri
+            val captionB64 = parts.getOrNull(4)?.takeIf { it.isNotBlank() }
+            val decodedCaption = if (captionB64 != null) {
+                try {
+                    String(Base64.decode(captionB64, Base64.DEFAULT), Charsets.UTF_8).ifBlank { fileName }
+                } catch (_: Exception) {
+                    fileName
+                }
+            } else {
+                fileName
+            }
             return DecodedIncomingPayload(
                 type = "FILE",
-                content = fileName,
+                content = decodedCaption,
                 uri = materializedUri,
                 mimeType = parts.getOrNull(2)?.takeIf { it.isNotBlank() },
-                sizeBytes = parts.getOrNull(3)?.toLongOrNull() ?: 0L
+                sizeBytes = parts.getOrNull(3)?.toLongOrNull() ?: 0L,
+                attachmentName = fileName
             )
         }
         if (decrypted.startsWith("VOICE::")) {

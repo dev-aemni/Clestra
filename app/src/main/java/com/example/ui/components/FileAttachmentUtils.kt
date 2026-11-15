@@ -40,6 +40,14 @@ data class EmbeddedAttachmentResult(
     val isImage: Boolean
 )
 
+data class PendingAttachment(
+    val sourceUri: Uri,
+    val displayName: String,
+    val mimeType: String,
+    val sizeBytes: Long,
+    val isImage: Boolean
+)
+
 object FileAttachmentUtils {
 
     private val textExtensions = setOf(
@@ -101,6 +109,26 @@ object FileAttachmentUtils {
         }
     }
 
+    suspend fun inspectPendingAttachment(
+        context: Context,
+        sourceUri: Uri,
+        forceImage: Boolean = false
+    ): PendingAttachment = withContext(Dispatchers.IO) {
+        val (queriedName, queriedMime, queriedSize) = queryUriMetaFull(context, sourceUri)
+        val mimeType = context.contentResolver.getType(sourceUri)
+            ?: queriedMime
+            ?: if (forceImage) "image/jpeg" else "application/octet-stream"
+        val displayName = queriedName ?: if (forceImage) "clestra_photo.jpg" else "attachment"
+        val isImg = forceImage || classifyFileKind(displayName, mimeType) == ClestraFileKind.IMAGE
+        PendingAttachment(
+            sourceUri = sourceUri,
+            displayName = displayName,
+            mimeType = mimeType,
+            sizeBytes = queriedSize,
+            isImage = isImg
+        )
+    }
+
     suspend fun importAndEmbedAttachment(
         context: Context,
         sourceUri: Uri,
@@ -114,7 +142,7 @@ object FileAttachmentUtils {
                 ?: if (forceImage) "image/jpeg" else "application/octet-stream"
             val rawName = queriedMeta.first ?: if (forceImage) "clestra_photo.jpg" else "attachment.bin"
             val safeName = rawName.replace(Regex("[^A-Za-z0-9._-]"), "_")
-            val isImg = forceImage || mimeType.startsWith("image/")
+            val isImg = forceImage || classifyFileKind(rawName, mimeType) == ClestraFileKind.IMAGE
 
             if (isImg) {
                 val input = context.contentResolver.openInputStream(sourceUri) ?: return@withContext null
@@ -217,19 +245,77 @@ object FileAttachmentUtils {
     }
 
     private fun queryUriMeta(context: Context, uri: Uri): Pair<String?, String?> {
+        val full = queryUriMetaFull(context, uri)
+        return full.first to full.second
+    }
+
+    private fun queryUriMetaFull(context: Context, uri: Uri): Triple<String?, String?, Long> {
         var name: String? = null
         var mime: String? = null
+        var size = 0L
         try {
             mime = context.contentResolver.getType(uri)
             context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
                 if (cursor.moveToFirst()) {
-                    val idx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-                    if (idx >= 0) name = cursor.getString(idx)
+                    val nameIdx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    if (nameIdx >= 0) name = cursor.getString(nameIdx)
+                    val sizeIdx = cursor.getColumnIndex(OpenableColumns.SIZE)
+                    if (sizeIdx >= 0 && !cursor.isNull(sizeIdx)) {
+                        size = cursor.getLong(sizeIdx)
+                    }
                 }
             }
         } catch (_: Exception) {
         }
-        return name to mime
+        return Triple(name, mime, size)
+    }
+
+    /**
+     * Converts any local or embedded image URI into a compact Base64 JPEG data URL
+     * suitable for OpenRouter multimodal vision requests.
+     */
+    suspend fun encodeImageAsDataUrl(
+        context: Context,
+        uriString: String?,
+        maxDim: Int = 1024,
+        maxBytes: Int = 650_000
+    ): String? = withContext(Dispatchers.IO) {
+        if (uriString.isNullOrBlank()) return@withContext null
+        try {
+            if (uriString.startsWith("data:image/") && uriString.contains(";base64,") && uriString.length <= maxBytes * 2) {
+                return@withContext uriString
+            }
+            val rawBytes = readAllBytes(context, uriString) ?: return@withContext null
+            val decoded = BitmapFactory.decodeByteArray(rawBytes, 0, rawBytes.size)
+            if (decoded == null) {
+                if (rawBytes.size <= maxBytes) {
+                    return@withContext "data:image/jpeg;base64," + Base64.encodeToString(rawBytes, Base64.NO_WRAP)
+                }
+                return@withContext null
+            }
+
+            var currentDim = maxDim
+            var jpegBytes = ByteArray(0)
+            while (currentDim >= 480) {
+                val scaled = scaleBitmapIfNeeded(decoded, currentDim)
+                var quality = 84
+                while (quality >= 52) {
+                    val out = ByteArrayOutputStream()
+                    scaled.compress(Bitmap.CompressFormat.JPEG, quality, out)
+                    jpegBytes = out.toByteArray()
+                    if (jpegBytes.size <= maxBytes) break
+                    quality -= 16
+                }
+                if (scaled !== decoded) scaled.recycle()
+                if (jpegBytes.size <= maxBytes) break
+                currentDim = (currentDim * 0.72f).toInt()
+            }
+            decoded.recycle()
+            if (jpegBytes.isEmpty()) return@withContext null
+            "data:image/jpeg;base64," + Base64.encodeToString(jpegBytes, Base64.NO_WRAP)
+        } catch (_: Exception) {
+            null
+        }
     }
 
     suspend fun readTextFileContent(context: Context, uriString: String?, maxChars: Int = 120_000): String? =

@@ -48,8 +48,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         .combine(flowOf(true)) { account, _ -> account != null }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
-    val mongoDbSecret = repository.mongoDbSecret
-
     // Current navigation state
     private val _activePeerId = MutableStateFlow<String?>(null)
     val activePeerId: StateFlow<String?> = _activePeerId.asStateFlow()
@@ -111,14 +109,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     val syncStatus = repository.syncStatus
     val lastSyncCount = repository.lastSyncCount
-    val serverlessUrl = repository.serverlessUrl
     val isBotTyping = repository.isBotTyping
 
     private val _isSyncing = MutableStateFlow(false)
     val isSyncing: StateFlow<Boolean> = _isSyncing.asStateFlow()
-
-    private val _relayTestResult = MutableStateFlow<String?>(null)
-    val relayTestResult: StateFlow<String?> = _relayTestResult.asStateFlow()
 
     // Stickers & GIF Search State
     val stickers: StateFlow<List<CustomStickerEntity>> = repository.getAllStickers()
@@ -271,7 +265,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             ) ?: return@launch
 
             val type = if (embedded.isImage) "IMAGE" else "FILE"
-            val textContent = if (embedded.isImage) caption.trim() else embedded.displayName
+            val textContent = if (embedded.isImage) {
+                caption.trim()
+            } else {
+                caption.trim().ifBlank { embedded.displayName }
+            }
 
             repository.sendMessage(
                 recipientPeerId = peerId,
@@ -438,18 +436,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     fun deletePeerAndConversation(peerId: String) {
         viewModelScope.launch {
             repository.deletePeerAndConversation(peerId)
-        }
-    }
-
-    fun updateServerlessUrl(newUrl: String) {
-        repository.updateServerlessUrl(newUrl)
-    }
-
-    fun testRelayConnection() {
-        viewModelScope.launch {
-            _relayTestResult.value = "Checking connection..."
-            val result = repository.testRelayConnection()
-            _relayTestResult.value = result
         }
     }
 

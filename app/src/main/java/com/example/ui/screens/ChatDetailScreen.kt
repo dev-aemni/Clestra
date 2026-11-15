@@ -50,29 +50,36 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Reply
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.AttachFile
+import androidx.compose.material.icons.filled.AudioFile
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.EmojiEmotions
+import androidx.compose.material.icons.filled.FolderZip
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.NotificationsOff
+import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
+import androidx.compose.material.icons.filled.VideoFile
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -124,6 +131,7 @@ import com.example.ui.ChatViewModel
 import com.example.ui.components.AudioMetaCodec
 import com.example.ui.components.ClestraAudioPlaybackController
 import com.example.ui.components.ClestraAudioPlayerBar
+import com.example.ui.components.ClestraFileKind
 import com.example.ui.components.ClestraLiveRecordingStrip
 import com.example.ui.components.ClestraVoiceRecorder
 import com.example.ui.components.ClestraWallpaperBox
@@ -137,6 +145,7 @@ import com.example.ui.components.LocalClestraAudioController
 import com.example.ui.components.MarkdownMessageContent
 import com.example.ui.components.MuteDurationDialog
 import com.example.ui.components.NeumorphicButton
+import com.example.ui.components.PendingAttachment
 import com.example.ui.components.StickerVisual
 import com.example.ui.components.formatMuteRemaining
 import com.example.ui.components.neumorphicBubble
@@ -194,6 +203,7 @@ fun ChatDetailScreen(
     val gifNotice by viewModel.gifNotice.collectAsState()
 
     var inputText by remember { mutableStateOf("") }
+    var pendingAttachment by remember { mutableStateOf<PendingAttachment?>(null) }
     var previewMediaUri by remember { mutableStateOf<String?>(null) }
     var fullScreenDoc by remember { mutableStateOf<FullScreenDocumentData?>(null) }
     var showOverflowMenu by remember { mutableStateOf(false) }
@@ -275,18 +285,15 @@ fun ChatDetailScreen(
                 )
             } catch (_: Exception) {
             }
-            val caption = inputText
-            val reply = replyingToMessage
-            inputText = ""
-            replyingToMessage = null
             showAttachTray = false
-            viewModel.sendAttachment(
-                sourceUri = uri,
-                forceImage = true,
-                caption = caption,
-                replyTo = reply,
-                replySenderName = if (reply?.isOutgoing == true) "You" else peerName
-            )
+            editingMessage = null
+            scope.launch {
+                pendingAttachment = FileAttachmentUtils.inspectPendingAttachment(
+                    context = context,
+                    sourceUri = uri,
+                    forceImage = true
+                )
+            }
         }
     }
 
@@ -301,15 +308,15 @@ fun ChatDetailScreen(
                 )
             } catch (_: Exception) {
             }
-            val reply = replyingToMessage
-            replyingToMessage = null
             showAttachTray = false
-            viewModel.sendAttachment(
-                sourceUri = uri,
-                forceImage = false,
-                replyTo = reply,
-                replySenderName = if (reply?.isOutgoing == true) "You" else peerName
-            )
+            editingMessage = null
+            scope.launch {
+                pendingAttachment = FileAttachmentUtils.inspectPendingAttachment(
+                    context = context,
+                    sourceUri = uri,
+                    forceImage = false
+                )
+            }
         }
     }
 
@@ -854,6 +861,120 @@ fun ChatDetailScreen(
                         }
                     }
 
+                    // Staged Photo / File Attachment Preview before final send confirmation
+                    val stagedAttachment = pendingAttachment
+                    AnimatedVisibility(visible = stagedAttachment != null && !isRecordingVoice) {
+                        if (stagedAttachment != null) {
+                            val fileKind = remember(stagedAttachment.displayName, stagedAttachment.mimeType) {
+                                FileAttachmentUtils.classifyFileKind(stagedAttachment.displayName, stagedAttachment.mimeType)
+                            }
+                            val sizeLabel = remember(stagedAttachment.sizeBytes) {
+                                if (stagedAttachment.sizeBytes > 0L) {
+                                    FileAttachmentUtils.formatFileSize(stagedAttachment.sizeBytes)
+                                } else {
+                                    "Ready"
+                                }
+                            }
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(start = 12.dp, end = 10.dp, top = 10.dp)
+                                    .neumorphicPressed(
+                                        cornerRadius = 18.dp,
+                                        containerColor = ClestraNeuWell
+                                    )
+                                    .padding(10.dp)
+                                    .testTag("pending_attachment_preview"),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                if (stagedAttachment.isImage) {
+                                    AsyncImage(
+                                        model = stagedAttachment.sourceUri,
+                                        contentDescription = "Selected photo preview",
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier
+                                            .size(56.dp)
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .clickable {
+                                                previewMediaUri = stagedAttachment.sourceUri.toString()
+                                            }
+                                    )
+                                } else {
+                                    val stagedIcon = when (fileKind) {
+                                        ClestraFileKind.APK -> Icons.Default.Android
+                                        ClestraFileKind.CODE_OR_TEXT -> Icons.Default.Code
+                                        ClestraFileKind.PDF -> Icons.Default.PictureAsPdf
+                                        ClestraFileKind.ARCHIVE -> Icons.Default.FolderZip
+                                        ClestraFileKind.AUDIO -> Icons.Default.AudioFile
+                                        ClestraFileKind.VIDEO -> Icons.Default.VideoFile
+                                        else -> Icons.Default.Description
+                                    }
+                                    Box(
+                                        modifier = Modifier
+                                            .size(48.dp)
+                                            .neumorphicRaised(
+                                                cornerRadius = 13.dp,
+                                                elevation = 3.dp,
+                                                containerColor = ClestraNeuSurface
+                                            ),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = stagedIcon,
+                                            contentDescription = "Selected file",
+                                            tint = ClestraCopper,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.width(12.dp))
+
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = if (stagedAttachment.isImage) "Photo attached • Tap Send to deliver" else "File attached • Tap Send to deliver",
+                                        color = ClestraCopperDark,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = stagedAttachment.displayName,
+                                        color = ClestraCharcoal,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        text = "${fileKind.badgeLabel} • $sizeLabel",
+                                        color = ClestraTextSoft,
+                                        fontSize = 11.sp
+                                    )
+                                }
+
+                                IconButton(
+                                    onClick = { pendingAttachment = null },
+                                    modifier = Modifier
+                                        .minimumInteractiveComponentSize()
+                                        .size(36.dp)
+                                        .neumorphicRaised(
+                                            cornerRadius = 11.dp,
+                                            elevation = 3.dp,
+                                            containerColor = ClestraNeuSurface
+                                        )
+                                        .testTag("cancel_pending_attachment")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "Remove attachment",
+                                        tint = ClestraCharcoal,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+
                     // Expandable Attachment Action Tray (+ Photo / File / GIFs)
                     AnimatedVisibility(visible = showAttachTray) {
                         Row(
@@ -1013,6 +1134,8 @@ fun ChatDetailScreen(
                                     Text(
                                         text = when {
                                             editingMessage != null -> "Update message..."
+                                            pendingAttachment?.isImage == true -> "Add a message with this photo..."
+                                            pendingAttachment != null -> "Add a message with this file..."
                                             isOfficial -> "Ask Clestra anything..."
                                             else -> "Message..."
                                         },
@@ -1049,7 +1172,7 @@ fun ChatDetailScreen(
 
                             Spacer(modifier = Modifier.width(8.dp))
 
-                            val showSendButton = inputText.isNotBlank() || editingMessage != null
+                            val showSendButton = inputText.isNotBlank() || editingMessage != null || pendingAttachment != null
                             Box(
                                 modifier = Modifier
                                     .minimumInteractiveComponentSize()
@@ -1062,7 +1185,23 @@ fun ChatDetailScreen(
                                     .clip(CircleShape)
                                     .clickable {
                                         if (showSendButton) {
-                                            if (inputText.isNotBlank()) {
+                                            val staged = pendingAttachment
+                                            if (staged != null) {
+                                                val caption = inputText
+                                                val reply = replyingToMessage
+                                                pendingAttachment = null
+                                                editingMessage = null
+                                                inputText = ""
+                                                replyingToMessage = null
+                                                showAttachTray = false
+                                                viewModel.sendAttachment(
+                                                    sourceUri = staged.sourceUri,
+                                                    forceImage = staged.isImage,
+                                                    caption = caption,
+                                                    replyTo = reply,
+                                                    replySenderName = if (reply?.isOutgoing == true) "You" else peerName
+                                                )
+                                            } else if (inputText.isNotBlank()) {
                                                 val editTarget = editingMessage
                                                 if (editTarget != null) {
                                                     viewModel.editMessage(editTarget, inputText)
@@ -1498,6 +1637,14 @@ fun MessageBubble(
                                     onOpenFullScreenFile = onOpenFullScreenDoc,
                                     onDownloadFile = onSaveFile
                                 )
+                                val expectedFileName = message.attachmentName ?: ""
+                                if (message.content.isNotBlank() && message.content != expectedFileName) {
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    MarkdownMessageContent(
+                                        rawText = message.content,
+                                        onOpenFullScreenCode = onOpenFullScreenDoc
+                                    )
+                                }
                             }
 
                             !message.mediaUri.isNullOrBlank() && (isImage || isGif || message.messageType == "IMAGE") -> {
