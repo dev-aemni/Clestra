@@ -53,7 +53,7 @@ object StickerStorageUtils {
         BuiltInStickerMeta("stk_builtin_wave", "builtin://clestra_wave", "Wave Hello Hi", "👋", "HEY!", 0xFFF5D5B8),
         BuiltInStickerMeta("stk_builtin_love", "builtin://clestra_love", "Love Heart Peach", "🧡", "LOVE", 0xFFFFE0CE),
         BuiltInStickerMeta("stk_builtin_lock", "builtin://clestra_lock", "Private Lock Safe", "🔐", "SAFE", 0xFF2C2018),
-        BuiltInStickerMeta("stk_builtin_bolt", "builtin://clestra_bolt", "Fast P2P Direct Bolt", "⚡", "FAST!", 0xFFC4763A),
+        BuiltInStickerMeta("stk_builtin_bolt", "builtin://clestra_bolt", "Fast Direct Bolt", "⚡", "FAST!", 0xFFC4763A),
         BuiltInStickerMeta("stk_builtin_party", "builtin://clestra_party", "Party Celebrate Congrats", "🎉", "WOO!", 0xFFF2EAE0),
         BuiltInStickerMeta("stk_builtin_lol", "builtin://clestra_lol", "Laugh Funny LOL", "😂", "LOL", 0xFFFFE8B8),
         BuiltInStickerMeta("stk_builtin_coffee", "builtin://clestra_coffee", "Coffee Morning Vibe", "☕", "CHILL", 0xFFE8D5C0),

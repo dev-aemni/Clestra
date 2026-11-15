@@ -72,7 +72,6 @@ class ChatRepository(
     }
 
     val serverlessUrl = MutableStateFlow(RelayKeepaliveJobService.getRelayUrl(context))
-    val isSimulationFallbackEnabled = MutableStateFlow(true)
 
     // Foreground & active conversation tracking for out-of-app notifications
     private val _isAppInForeground = MutableStateFlow(true)
@@ -90,8 +89,8 @@ class ChatRepository(
     private val _lastSyncCount = MutableStateFlow(0)
     val lastSyncCount: StateFlow<Int> = _lastSyncCount.asStateFlow()
 
-    // In-memory serverless store for local offline testing (stores encrypted payloads only)
-    private val mockServerlessPendingMessages = mutableListOf<SendMessagePayload>()
+    // Retry queue for outgoing messages created while temporarily offline
+    private val pendingOutgoingQueue = mutableListOf<MessageEntity>()
 
     init {
         NotificationHelper.ensureChannel(context)
@@ -104,11 +103,14 @@ class ChatRepository(
                 RelayKeepaliveJobService.saveRelayConfig(context, serverlessUrl.value, acct.id)
             }
             RelayKeepaliveJobService.sendInstantDeletePulseIfDue(context)
+            if (getCurrentAccount() != null && NotificationHelper.isDeviceOnline(context)) {
+                syncOfflineMessagesForUser()
+            }
         }
-        // Background polling for queued relay messages while online
+        // Continuous polling: fast 3.5s while in foreground for two-phone delivery, 20s in background
         scope.launch {
             while (isActive) {
-                delay(20_000)
+                delay(if (_isAppInForeground.value) 3_500L else 20_000L)
                 if (getCurrentAccount() != null && NotificationHelper.isDeviceOnline(context)) {
                     syncOfflineMessagesForUser()
                 }
@@ -128,6 +130,13 @@ class ChatRepository(
 
     fun setAppInForeground(inForeground: Boolean) {
         _isAppInForeground.value = inForeground
+        if (inForeground) {
+            scope.launch {
+                if (getCurrentAccount() != null && NotificationHelper.isDeviceOnline(context)) {
+                    syncOfflineMessagesForUser()
+                }
+            }
+        }
     }
 
     fun setActiveConversationPeerId(peerId: String?) {
@@ -384,11 +393,11 @@ class ChatRepository(
             else -> "$effectiveType::$effectiveContent::$embeddedUri"
         }
 
-        // Encrypt payload with AES-256-GCM for both P2P and MongoDB relay transport
+        // Encrypt + GZIP payload with AES-256-GCM before leaving the device
         val encryptedPayload = CryptoUtils.encryptPayload(transportPlaintext, myId, recipientPeerId)
 
-        val route = if (isOnline || recipientPeerId == OFFICIAL_BOT_ID) "P2P_DIRECT" else "SERVERLESS_RELAY"
-        val initialStatus = if (route == "P2P_DIRECT") "DELIVERED" else "SENT"
+        val route = if (recipientPeerId == OFFICIAL_BOT_ID) "P2P_DIRECT" else "SERVERLESS_RELAY"
+        val initialStatus = if (recipientPeerId == OFFICIAL_BOT_ID) "DELIVERED" else "SENT"
 
         val message = MessageEntity(
             id = messageId,
@@ -423,7 +432,7 @@ class ChatRepository(
         }
 
         val existingConvo = conversationDao.getConversation(recipientPeerId)
-        val peerName = peer?.displayName ?: existingConvo?.peerName ?: "Clestra Peer"
+        val peerName = peer?.displayName ?: existingConvo?.peerName ?: "Clestra Contact"
         val peerAvatarColor = peer?.avatarColor ?: 0xFFC4763A
         val peerAvatarIcon = peer?.avatarIcon ?: "🍑"
         val updatedConvo = ConversationEntity(
@@ -444,30 +453,21 @@ class ChatRepository(
         )
         conversationDao.upsertConversation(updatedConvo)
 
-        when {
-            recipientPeerId == OFFICIAL_BOT_ID -> {
-                val botPromptText = when (effectiveType) {
-                    "GIF" -> "[User sent a GIF: $effectiveContent]"
-                    "STICKER" -> "[User sent a sticker: $effectiveContent]"
-                    "VOICE" -> "[User sent a voice note: $effectiveContent]"
-                    "IMAGE" -> "[User sent an embedded photo]"
-                    "FILE" -> "[User shared file: ${attachmentName ?: effectiveContent}]"
-                    else -> effectiveContent
-                }
-                scope.launch {
-                    replyAsClestraBot(myAccount, botPromptText)
-                }
+        if (recipientPeerId == OFFICIAL_BOT_ID) {
+            val botPromptText = when (effectiveType) {
+                "GIF" -> "[User sent a GIF: $effectiveContent]"
+                "STICKER" -> "[User sent a sticker: $effectiveContent]"
+                "VOICE" -> "[User sent a voice note: $effectiveContent]"
+                "IMAGE" -> "[User sent an embedded photo]"
+                "FILE" -> "[User shared file: ${attachmentName ?: effectiveContent}]"
+                else -> effectiveContent
             }
-            isOnline -> {
-                scope.launch {
-                    delay(900)
-                    simulatePeerP2PReply(recipientPeerId, encryptedPayload, myId)
-                }
+            scope.launch {
+                replyAsClestraBot(myAccount, botPromptText)
             }
-            else -> {
-                scope.launch {
-                    dispatchToServerlessRelay(message)
-                }
+        } else {
+            scope.launch {
+                dispatchToServerlessRelay(message)
             }
         }
 
@@ -805,70 +805,10 @@ class ChatRepository(
                 "Unpinned chat with **${target.displayName}**."
             }
 
-            "set_peer_online" -> {
-                val target = findPeerByQuery(directive.peer)
-                    ?: return "Could not find contact '${directive.peer}'."
-                val wantOnline = directive.online ?: !target.isOnline
-                peerDao.updateOnlineStatus(target.peerId, wantOnline)
-                conversationDao.updatePeerOnlineStatus(target.peerId, wantOnline)
-                val modeLabel = if (wantOnline) "P2P Online" else "Offline Relay"
-                "Switched **${target.displayName}** to **$modeLabel**."
-            }
-
-            "add_contact" -> {
-                val rawPeer = directive.peer?.trim()
-                    ?: return "Please provide a Clestra ID (`CLS-...`)."
-                val id = CustomTagCodec.normalizePeerId(rawPeer)
-                val name = directive.name?.trim()?.ifBlank { null } ?: id
-                addPeer(id, name)
-                "Added contact **$name** (`$id`)."
-            }
-
-            "update_bio" -> {
-                val bio = directive.text ?: return "Missing bio text."
-                updateProfileBio(bio)
-                "Updated your profile bio to: _$bio _"
-            }
-
-            "update_name" -> {
-                val name = directive.text ?: return "Missing display name."
-                updateDisplayName(name)
-                "Updated your display name to **$name**."
-            }
-
-            "redeem_tag" -> {
-                val code = directive.code ?: directive.text ?: return "Missing redeem code."
-                val (_, msg) = redeemTagCode(code)
-                msg
-            }
-
-            "select_tag" -> {
-                val desired = directive.tag?.trim().orEmpty()
-                if (desired.isEmpty()) {
-                    selectActiveTag(null)
-                    "Cleared your active profile badge."
-                } else {
-                    val acct = getCurrentAccount()
-                    val matched = acct?.unlockedTags
-                        ?.split(",")
-                        ?.map { it.trim() }
-                        ?.firstOrNull {
-                            it.equals(desired, ignoreCase = true) ||
-                                CustomTagCodec.extractTagName(it).equals(desired, ignoreCase = true)
-                        }
-                    if (matched != null) {
-                        selectActiveTag(matched)
-                        "Activated badge **${CustomTagCodec.extractTagName(matched)}**."
-                    } else {
-                        "Badge '$desired' isn't unlocked yet."
-                    }
-                }
-            }
-
             "sync_relay" -> {
                 val count = syncOfflineMessagesForUser()
                 RelayKeepaliveJobService.sendInstantDeletePulseIfDue(context, force = true)
-                "Synced Serverless Relay ($count new messages pulled)."
+                "Synced messages ($count new pulled)."
             }
 
             else -> "Action '${directive.action}' is not recognized."
@@ -901,7 +841,7 @@ Tap **Full** on any code box to inspect all lines with line numbers!
         }
     }
 
-    private suspend fun dispatchToServerlessRelay(message: MessageEntity) {
+    private suspend fun dispatchToServerlessRelay(message: MessageEntity): Boolean {
         val payload = SendMessagePayload(
             senderId = message.senderId,
             recipientId = message.recipientId,
@@ -909,33 +849,69 @@ Tap **Full** on any code box to inspect all lines with line numbers!
             timestamp = message.timestamp
         )
 
-        try {
+        return try {
             val service = NetworkClient.createRelayService(serverlessUrl.value)
             val response = service.sendOfflineMessage(payload)
             if (response.success) {
-                _syncStatus.value = "Queued in Relay"
+                messageDao.updateMessageStatus(message.id, "DELIVERED")
+                _syncStatus.value = "Delivered"
+                true
             } else {
-                throw Exception("Relay queue deferred")
+                queueForRetry(message)
+                _syncStatus.value = "Queued — retrying"
+                false
             }
         } catch (_: Exception) {
-            if (isSimulationFallbackEnabled.value) {
-                synchronized(mockServerlessPendingMessages) {
-                    mockServerlessPendingMessages.add(payload)
+            queueForRetry(message)
+            _syncStatus.value = "Offline — queued"
+            false
+        }
+    }
+
+    private fun queueForRetry(message: MessageEntity) {
+        synchronized(pendingOutgoingQueue) {
+            if (pendingOutgoingQueue.none { it.id == message.id }) {
+                pendingOutgoingQueue.add(message)
+            }
+        }
+    }
+
+    private suspend fun retryPendingOutgoingMessages() {
+        val snapshot = synchronized(pendingOutgoingQueue) {
+            if (pendingOutgoingQueue.isEmpty()) emptyList() else pendingOutgoingQueue.toList()
+        }
+        if (snapshot.isEmpty()) return
+
+        snapshot.forEach { msg ->
+            try {
+                val service = NetworkClient.createRelayService(serverlessUrl.value)
+                val payload = SendMessagePayload(
+                    senderId = msg.senderId,
+                    recipientId = msg.recipientId,
+                    compressedContent = msg.compressedContent,
+                    timestamp = msg.timestamp
+                )
+                val response = service.sendOfflineMessage(payload)
+                if (response.success) {
+                    messageDao.updateMessageStatus(msg.id, "DELIVERED")
+                    synchronized(pendingOutgoingQueue) {
+                        pendingOutgoingQueue.removeAll { it.id == msg.id }
+                    }
                 }
-                _syncStatus.value = "Queued in Offline Relay"
-            } else {
-                _syncStatus.value = "Offline"
+            } catch (_: Exception) {
+                // Keep queued for next retry
             }
         }
     }
 
     /**
-     * Pull queued encrypted messages from Serverless store,
-     * filter blocked senders, decrypt locally, and notify if outside the app.
+     * Pull queued encrypted messages from cloud sync,
+     * auto-register unknown senders (unless blocked), decrypt locally, and notify if outside the app.
      */
     suspend fun syncOfflineMessagesForUser(recipientId: String? = null): Int {
         val myId = recipientId ?: (getCurrentAccount()?.id ?: return 0)
-        _syncStatus.value = "Syncing messages..."
+        retryPendingOutgoingMessages()
+        _syncStatus.value = "Syncing..."
         var count = 0
 
         try {
@@ -943,9 +919,29 @@ Tap **Full** on any code box to inspect all lines with line numbers!
             val response = service.syncOfflineMessages(myId)
 
             if (response.success && response.messages.isNotEmpty()) {
-                val incomingList = response.messages.mapNotNull { item ->
-                    val senderPeer = peerDao.getPeer(item.senderId)
-                    if (senderPeer?.isBlocked == true) return@mapNotNull null
+                val incomingList = mutableListOf<MessageEntity>()
+                for (item in response.messages) {
+                    val normalizedSender = CustomTagCodec.normalizePeerId(item.senderId)
+                    val existingPeer = peerDao.getPeer(item.senderId)
+                        ?: peerDao.getPeer(normalizedSender)
+                    if (existingPeer?.isBlocked == true) continue
+
+                    val convoPeerId = existingPeer?.peerId ?: normalizedSender
+                    if (existingPeer == null) {
+                        val colors = listOf(0xFFC4763A, 0xFFA05C28, 0xFFE8D5C0, 0xFFF5D5B8)
+                        val color = colors[kotlin.math.abs(convoPeerId.hashCode()) % colors.size]
+                        peerDao.upsertPeer(
+                            PeerEntity(
+                                peerId = convoPeerId,
+                                displayName = convoPeerId,
+                                bio = "Clestra Contact",
+                                avatarColor = color,
+                                avatarIcon = "🍑",
+                                isOnline = true,
+                                directAddress = ""
+                            )
+                        )
+                    }
 
                     val decrypted = CryptoUtils.decryptPayload(
                         cipherPayload = item.compressedContent,
@@ -953,57 +949,10 @@ Tap **Full** on any code box to inspect all lines with line numbers!
                         recipientId = item.recipientId
                     )
                     val decoded = decodeIncomingPayload(decrypted)
-                    MessageEntity(
-                        id = item.id ?: UUID.randomUUID().toString(),
-                        conversationId = item.senderId,
-                        senderId = item.senderId,
-                        recipientId = item.recipientId,
-                        content = decoded.content,
-                        compressedContent = item.compressedContent,
-                        timestamp = item.timestamp,
-                        deliveryRoute = "SERVERLESS_RELAY",
-                        status = "DELIVERED",
-                        isOutgoing = false,
-                        mediaUri = decoded.uri,
-                        messageType = decoded.type,
-                        attachmentName = if (decoded.type == "FILE" || decoded.type == "VOICE") decoded.content else null,
-                        attachmentMimeType = decoded.mimeType,
-                        attachmentSizeBytes = decoded.sizeBytes
-                    )
-                }
-
-                if (incomingList.isNotEmpty()) {
-                    messageDao.insertMessages(incomingList)
-                    count = incomingList.size
-                    updateConversationsAfterSync(incomingList)
-                    notifyForSyncedMessages(incomingList)
-                }
-                _syncStatus.value = "Synced $count messages"
-            } else {
-                _syncStatus.value = "Up to date"
-            }
-        } catch (_: Exception) {
-            if (isSimulationFallbackEnabled.value) {
-                val matched = synchronized(mockServerlessPendingMessages) {
-                    val matching = mockServerlessPendingMessages.filter { it.recipientId == myId }
-                    mockServerlessPendingMessages.removeAll { it.recipientId == myId }
-                    matching
-                }
-
-                if (matched.isNotEmpty()) {
-                    val incomingList = matched.mapNotNull { item ->
-                        val senderPeer = peerDao.getPeer(item.senderId)
-                        if (senderPeer?.isBlocked == true) return@mapNotNull null
-
-                        val decrypted = CryptoUtils.decryptPayload(
-                            cipherPayload = item.compressedContent,
-                            senderId = item.senderId,
-                            recipientId = item.recipientId
-                        )
-                        val decoded = decodeIncomingPayload(decrypted)
+                    incomingList.add(
                         MessageEntity(
-                            id = UUID.randomUUID().toString(),
-                            conversationId = item.senderId,
+                            id = item.id ?: UUID.randomUUID().toString(),
+                            conversationId = convoPeerId,
                             senderId = item.senderId,
                             recipientId = item.recipientId,
                             content = decoded.content,
@@ -1018,20 +967,21 @@ Tap **Full** on any code box to inspect all lines with line numbers!
                             attachmentMimeType = decoded.mimeType,
                             attachmentSizeBytes = decoded.sizeBytes
                         )
-                    }
-                    if (incomingList.isNotEmpty()) {
-                        messageDao.insertMessages(incomingList)
-                        count = incomingList.size
-                        updateConversationsAfterSync(incomingList)
-                        notifyForSyncedMessages(incomingList)
-                    }
-                    _syncStatus.value = "Synced $count messages"
-                } else {
-                    _syncStatus.value = "Ready"
+                    )
                 }
+
+                if (incomingList.isNotEmpty()) {
+                    messageDao.insertMessages(incomingList)
+                    count = incomingList.size
+                    updateConversationsAfterSync(incomingList)
+                    notifyForSyncedMessages(incomingList)
+                }
+                _syncStatus.value = if (count > 0) "Synced $count new" else "Up to date"
             } else {
-                _syncStatus.value = "Offline"
+                _syncStatus.value = "Up to date"
             }
+        } catch (_: Exception) {
+            _syncStatus.value = if (NotificationHelper.isDeviceOnline(context)) "Sync unavailable" else "Offline"
         }
 
         _lastSyncCount.value = count
@@ -1171,11 +1121,11 @@ Tap **Full** on any code box to inspect all lines with line numbers!
         val peer = PeerEntity(
             peerId = cleanId,
             displayName = name,
-            bio = "Clestra Node • ID: $cleanId",
+            bio = "Clestra Contact",
             avatarColor = color,
             avatarIcon = avatarIcon,
             isOnline = true,
-            directAddress = "p2p://$cleanId.clestra.mesh"
+            directAddress = ""
         )
         peerDao.upsertPeer(peer)
 
@@ -1188,7 +1138,7 @@ Tap **Full** on any code box to inspect all lines with line numbers!
             lastTimestamp = System.currentTimeMillis(),
             unreadCount = 0,
             isPeerOnline = true,
-            lastDeliveryRoute = "P2P_DIRECT"
+            lastDeliveryRoute = "SERVERLESS_RELAY"
         )
         conversationDao.upsertConversation(convo)
     }
@@ -1197,78 +1147,10 @@ Tap **Full** on any code box to inspect all lines with line numbers!
         return try {
             val service = NetworkClient.createRelayService(serverlessUrl.value)
             val health = service.getHealth()
-            "Connected (${health.service ?: "Relay"})"
+            "Connected (${health.service ?: "Clestra Cloud"})"
         } catch (_: Exception) {
-            "Offline Relay Simulator active"
+            "Unable to reach server — check internet or endpoint URL"
         }
-    }
-
-    private suspend fun simulatePeerP2PReply(
-        peerId: String,
-        encryptedUserPayload: String,
-        myId: String
-    ) {
-        val peer = peerDao.getPeer(peerId) ?: return
-        if (!peer.isOnline || peer.isBlocked) return
-
-        val rawDecrypted = CryptoUtils.decryptPayload(encryptedUserPayload, myId, peerId)
-        val decoded = decodeIncomingPayload(rawDecrypted)
-        val replyText = when {
-            decoded.type == "GIF" -> "Nice GIF!"
-            decoded.type == "STICKER" -> "Awesome sticker!"
-            decoded.type == "VOICE" -> "Got your ${decoded.content.lowercase()}!"
-            decoded.type == "IMAGE" -> "Got your embedded photo!"
-            decoded.type == "FILE" -> "Received your file: ${decoded.content}"
-            decoded.content.contains("hello", ignoreCase = true) || decoded.content.contains("hi", ignoreCase = true) ->
-                "Hey! Got your message directly."
-            decoded.content.contains("id", ignoreCase = true) ->
-                "Your Clestra ID looks great!"
-            else ->
-                "Got it! Received directly."
-        }
-
-        val encryptedReply = CryptoUtils.encryptPayload(replyText, peerId, myId)
-        val decryptedOnReceive = CryptoUtils.decryptPayload(encryptedReply, peerId, myId)
-
-        val replyMsg = MessageEntity(
-            id = UUID.randomUUID().toString(),
-            conversationId = peerId,
-            senderId = peerId,
-            recipientId = myId,
-            content = decryptedOnReceive,
-            compressedContent = encryptedReply,
-            timestamp = System.currentTimeMillis(),
-            deliveryRoute = "P2P_DIRECT",
-            status = "DELIVERED",
-            isOutgoing = false
-        )
-
-        messageDao.insertMessage(replyMsg)
-
-        val isViewing = _isAppInForeground.value && _activeConversationPeerId.value == peerId
-        val currentConvo = conversationDao.getConversation(peerId)
-        val unread = if (isViewing) 0 else (currentConvo?.unreadCount ?: 0) + 1
-
-        conversationDao.upsertConversation(
-            ConversationEntity(
-                peerId = peerId,
-                peerName = peer.displayName,
-                peerAvatarColor = peer.avatarColor,
-                peerAvatarIcon = peer.avatarIcon,
-                lastMessage = decryptedOnReceive,
-                lastTimestamp = replyMsg.timestamp,
-                unreadCount = unread,
-                isPeerOnline = true,
-                lastDeliveryRoute = "P2P_DIRECT",
-                isOfficial = peer.isOfficial,
-                isMuted = peer.isMuted,
-                mutedUntil = peer.mutedUntil,
-                isPinned = currentConvo?.isPinned ?: false,
-                isBlocked = peer.isBlocked
-            )
-        )
-
-        maybeNotifyIncomingMessage(peerId, peer.displayName, decryptedOnReceive)
     }
 
     private data class DecodedIncomingPayload(

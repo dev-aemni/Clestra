@@ -464,7 +464,7 @@ fun ProfileScreen(
             ) {
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Text(
-                        text = "Relay Status: $syncStatus",
+                        text = "Sync Status: $syncStatus",
                         fontSize = 12.sp,
                         color = ClestraTextSoft,
                         fontWeight = FontWeight.Medium
@@ -491,7 +491,7 @@ fun ProfileScreen(
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = if (isSyncing) "Syncing..." else "Sync Relay",
+                                    text = if (isSyncing) "Syncing..." else "Sync Messages",
                                     color = ClestraCopper,
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.SemiBold

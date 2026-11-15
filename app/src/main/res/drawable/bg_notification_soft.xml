@@ -1,35 +1,35 @@
 <?xml version="1.0" encoding="utf-8"?>
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Outer soft bottom-right shadow layers simulating CSS 5px 5px 12px rgba(0,0,0,.16) -->
+    <!-- Outer soft bottom-right shadow layers -->
     <item android:top="5dp" android:left="5dp" android:right="0dp" android:bottom="0dp">
         <shape android:shape="rectangle">
-            <solid android:color="#12000000" />
+            <solid android:color="#122C2018" />
             <corners android:radius="25dp" />
         </shape>
     </item>
     <item android:top="4dp" android:left="4dp" android:right="1.5dp" android:bottom="1.5dp">
         <shape android:shape="rectangle">
-            <solid android:color="#18000000" />
+            <solid android:color="#182C2018" />
             <corners android:radius="24dp" />
         </shape>
     </item>
 
-    <!-- Subtle top-left white highlight simulating CSS -5px -5px 12px #ffffff -->
+    <!-- Subtle top-left highlight -->
     <item android:top="0dp" android:left="0dp" android:right="5dp" android:bottom="5dp">
         <shape android:shape="rectangle">
-            <solid android:color="#E8FFFFFF" />
+            <solid android:color="#CCFFFFFF" />
             <corners android:radius="24dp" />
         </shape>
     </item>
 
-    <!-- Main single rounded #ECF0F3 Soft UI box -->
+    <!-- Main single rounded #F5EFE7 Warm Peach Soft UI box -->
     <item android:top="2.5dp" android:left="2.5dp" android:right="3.5dp" android:bottom="3.5dp">
         <shape android:shape="rectangle">
-            <solid android:color="#ECF0F3" />
+            <solid android:color="#F5EFE7" />
             <corners android:radius="22dp" />
             <stroke
                 android:width="0.75dp"
-                android:color="#DDE4EB" />
+                android:color="#E5D1BA" />
         </shape>
     </item>
 </layer-list>

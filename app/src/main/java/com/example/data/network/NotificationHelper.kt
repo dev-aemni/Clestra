@@ -25,7 +25,7 @@ object NotificationHelper {
 
     private const val CHANNEL_ID = "clestra_messages"
     private const val CHANNEL_NAME = "Clestra Messages"
-    private const val CHANNEL_DESC = "Notifications for incoming P2P, relay, and Clestra messages"
+    private const val CHANNEL_DESC = "Notifications for incoming Clestra messages"
 
     fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

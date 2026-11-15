@@ -273,15 +273,28 @@ class ExampleUnitTest {
     }
 
     @Test
-    fun testVoicePayloadAndSoftUiCssPaletteTokens() {
+    fun testVoicePayloadAndWarmPeachSoftUiTokens() {
         val payload = "VOICE::Voice (0:09)::gzb64:H4sIAAAAAAAA/8tIzcnJBwCGphA2BQAAAA==::audio/mp4;dur=9000;wf=20,50,80::4096"
         val sealed = CryptoUtils.encryptPayload(payload, "dev", "CLS-1111-2222-3333")
         assertTrue(sealed.startsWith("ENC2:"))
         assertEquals(payload, CryptoUtils.decryptPayload(sealed, "dev", "CLS-1111-2222-3333"))
 
-        assertEquals(androidx.compose.ui.graphics.Color(0xFFECF0F3), com.example.ui.theme.ClestraCream)
-        assertEquals(70, kotlin.math.round(com.example.ui.theme.ClestraTextSoft.red * 255f).toInt())
-        assertEquals(70, kotlin.math.round(com.example.ui.theme.ClestraTextSoft.green * 255f).toInt())
-        assertEquals(70, kotlin.math.round(com.example.ui.theme.ClestraTextSoft.blue * 255f).toInt())
+        assertEquals(androidx.compose.ui.graphics.Color(0xFFF3ECE3), com.example.ui.theme.ClestraCream)
+        assertEquals(androidx.compose.ui.graphics.Color(0xFFF5EFE7), com.example.ui.theme.ClestraNeuSurface)
+        assertEquals(androidx.compose.ui.graphics.Color(0xFFF5D5B8), com.example.ui.theme.ClestraBubbleSent)
+        assertEquals(androidx.compose.ui.graphics.Color(0xFF7A6555), com.example.ui.theme.ClestraTextSoft)
+    }
+
+    @Test
+    fun testHtmlPreviewDetection() {
+        assertTrue(com.example.ui.components.isHtmlPreviewable("html", "<div>Hello</div>"))
+        assertTrue(com.example.ui.components.isHtmlPreviewable("htm", "<p>Hi</p>"))
+        assertTrue(
+            com.example.ui.components.isHtmlPreviewable(
+                "code",
+                "<!DOCTYPE html><html><body><h1>Calc</h1></body></html>"
+            )
+        )
+        assertFalse(com.example.ui.components.isHtmlPreviewable("kotlin", "fun main() = println(\"hi\")"))
     }
 }

@@ -2,24 +2,24 @@ package com.example.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Clestra Exact CSS Soft UI (#ecf0f3) + Warm Copper Accent Palette
-val ClestraCream = Color(0xFFECF0F3)       // Exact CSS Soft UI canvas background (#ecf0f3)
-val ClestraNeuSurface = Color(0xFFECF0F3)  // Extruded Soft UI surface (#ecf0f3)
-val ClestraNeuWell = Color(0xFFECF0F3)     // Recessed Soft UI input/well (#ecf0f3)
-val ClestraNeuLight = Color(0xFFFFFFFF)    // Top-Left CSS Soft UI shadow (#ffffff)
-val ClestraNeuDark = Color(0xFFB5BFC9)     // Ambient slate tint for contours & doodles
+// Clestra Warm Peach & Cream Soft UI Palette
+val ClestraCream = Color(0xFFF3ECE3)       // Warm Peach-Cream Soft UI canvas background
+val ClestraNeuSurface = Color(0xFFF5EFE7)  // Extruded Warm Peach-Cream Soft UI surface
+val ClestraNeuWell = Color(0xFFEBE2D7)     // Recessed Warm Peach-Cream Soft UI input/well
+val ClestraNeuLight = Color(0xFFFFFFFF)    // Top-Left Soft UI highlight
+val ClestraNeuDark = Color(0xFFD2C2AE)     // Warm sand shadow tint for contours & doodles
 
-val ClestraWarmBeige = Color(0xFFE3E9EE)
-val ClestraLightSkin = Color(0xFFF0E4D8)
-val ClestraSand = Color(0xFFD6DEE6)
+val ClestraWarmBeige = Color(0xFFEDE2D5)
+val ClestraLightSkin = Color(0xFFF0E0D0)
+val ClestraSand = Color(0xFFE5D1BA)
 val ClestraCopper = Color(0xFFC4763A)
 val ClestraCopperDark = Color(0xFFA05C28)
-val ClestraCharcoal = Color(0xFF2D3136)
-val ClestraTextSoft = Color(0xFF464646)    // Exact CSS rgb(70, 70, 70) text ink
+val ClestraCharcoal = Color(0xFF2C2018)
+val ClestraTextSoft = Color(0xFF7A6555)    // Warm umber ink
 
 // Chat Bubbles
-val ClestraBubbleSent = Color(0xFFF2E3D5)
-val ClestraBubbleRecv = Color(0xFFECF0F3)
+val ClestraBubbleSent = Color(0xFFF5D5B8)
+val ClestraBubbleRecv = Color(0xFFF8F3EC)
 
 // Status
 val ClestraOnline = Color(0xFF2EA96D)
@@ -27,9 +27,9 @@ val ClestraError = Color(0xFFD94B4B)
 
 // Legacy aliases kept for compatibility
 val PeachBubbleSent = ClestraBubbleSent
-val PeachBubbleSentGradientEnd = Color(0xFFEBD4BF)
+val PeachBubbleSentGradientEnd = Color(0xFFEDD0B5)
 val PeachBubbleReceivedLight = ClestraBubbleRecv
-val PeachBubbleReceivedDark = Color(0xFF2B3036)
+val PeachBubbleReceivedDark = Color(0xFF36281F)
 val StatusP2POnline = ClestraOnline
 val StatusServerlessRelay = ClestraCopper
 val StatusOffline = ClestraTextSoft

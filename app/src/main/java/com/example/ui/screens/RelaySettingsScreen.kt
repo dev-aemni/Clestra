@@ -131,7 +131,7 @@ fun RelaySettingsScreen(
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
-                    text = "Settings & Relay",
+                    text = "Settings",
                     color = ClestraCharcoal,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold
@@ -298,7 +298,7 @@ fun RelaySettingsScreen(
                                 )
                                 Spacer(Modifier.height(4.dp))
                                 Text(
-                                    text = "Add MONGODB_URI in the AI Studio Secrets panel or set your serverless relay endpoint URL below.",
+                                    text = "Add MONGODB_URI in the AI Studio Secrets panel or configure your endpoint URL below.",
                                     fontSize = 11.sp,
                                     color = ClestraTextSoft
                                 )
@@ -326,7 +326,7 @@ fun RelaySettingsScreen(
                             )
                             Spacer(Modifier.width(8.dp))
                             Text(
-                                text = "Serverless Relay Endpoint",
+                                text = "Cloud Sync Endpoint",
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = ClestraCharcoal
@@ -335,7 +335,7 @@ fun RelaySettingsScreen(
 
                         Spacer(Modifier.height(8.dp))
                         Text(
-                            text = "URL for offline message queuing and sync.",
+                            text = "Endpoint URL for encrypted message delivery and sync.",
                             fontSize = 12.sp,
                             color = ClestraTextSoft
                         )
@@ -476,7 +476,7 @@ fun RelaySettingsScreen(
                                         modifier = Modifier.size(18.dp)
                                     )
                                     Spacer(Modifier.width(8.dp))
-                                    Text("Pull Queued Messages Now", color = Color.White, fontWeight = FontWeight.Bold)
+                                    Text("Sync Messages Now", color = Color.White, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }

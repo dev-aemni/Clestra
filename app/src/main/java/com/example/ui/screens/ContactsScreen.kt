@@ -31,8 +31,6 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -250,7 +248,7 @@ private fun ContactControlItem(
     NeumorphicCard(
         cornerRadius = 24.dp,
         elevation = 5.dp,
-        containerColor = if (peer.isOfficial) Color(0xFFE7EDF2) else ClestraNeuSurface,
+        containerColor = if (peer.isOfficial) ClestraWarmBeige else ClestraNeuSurface,
         accentBorderColor = if (peer.isOfficial) ClestraCopper.copy(alpha = 0.25f) else null,
         contentPadding = PaddingValues(14.dp),
         onClick = onChat,
@@ -331,38 +329,6 @@ private fun ContactControlItem(
                     fontFamily = if (peer.isOfficial) FontFamily.Default else FontFamily.Monospace,
                     color = ClestraTextSoft,
                     fontSize = 11.sp
-                )
-
-                if (!peer.isOfficial) {
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .clip(CircleShape)
-                                .background(if (peer.isOnline) ClestraOnline else ClestraCopper)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = if (peer.isOnline) "Direct Online" else "Offline • Relay",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = if (peer.isOnline) ClestraOnline else ClestraCopperDark
-                        )
-                    }
-                }
-            }
-
-            if (!peer.isOfficial) {
-                Switch(
-                    checked = peer.isOnline,
-                    onCheckedChange = { onToggleOnline() },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = Color.White,
-                        checkedTrackColor = ClestraOnline,
-                        uncheckedThumbColor = ClestraNeuSurface,
-                        uncheckedTrackColor = ClestraNeuWell
-                    )
                 )
             }
 

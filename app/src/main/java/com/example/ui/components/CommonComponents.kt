@@ -1,20 +1,14 @@
 package com.example.ui.components
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Cloud
-import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Icon
@@ -38,11 +32,7 @@ import androidx.compose.ui.unit.sp
 import com.example.ui.theme.ClestraBubbleSent
 import com.example.ui.theme.ClestraCharcoal
 import com.example.ui.theme.ClestraCopper
-import com.example.ui.theme.ClestraCopperDark
-import com.example.ui.theme.ClestraCream
-import com.example.ui.theme.ClestraNeuSurface
 import com.example.ui.theme.ClestraNeuWell
-import com.example.ui.theme.ClestraOnline
 import com.example.ui.theme.ClestraTextSoft
 
 @Composable
@@ -148,87 +138,6 @@ fun PeerAvatar(
             )
         }
 
-        val statusColor = if (isOnline) ClestraOnline else ClestraCopper
-        val dotSize = size * 0.26f
-
-        Box(
-            modifier = Modifier
-                .size(dotSize)
-                .align(Alignment.BottomEnd)
-                .clip(CircleShape)
-                .background(statusColor)
-                .border(2.dp, ClestraCream, CircleShape)
-        )
-    }
-}
-
-@Composable
-fun RouteBadge(
-    deliveryRoute: String,
-    modifier: Modifier = Modifier,
-    isCompact: Boolean = false
-) {
-    val isP2P = deliveryRoute == "P2P_DIRECT"
-    val bgColor = if (isP2P) ClestraOnline.copy(alpha = 0.14f) else ClestraNeuWell
-    val contentColor = if (isP2P) ClestraOnline else ClestraCopperDark
-    val label = if (isP2P) "P2P Direct" else "Relay Store"
-    val icon = if (isP2P) Icons.Default.FlashOn else Icons.Default.Cloud
-
-    Box(
-        modifier = modifier
-            .neumorphicPressed(cornerRadius = 12.dp, containerColor = bgColor)
-            .padding(horizontal = 8.dp, vertical = 3.dp)
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                imageVector = icon,
-                contentDescription = label,
-                tint = contentColor,
-                modifier = Modifier.size(if (isCompact) 11.dp else 13.dp)
-            )
-            if (!isCompact) {
-                Text(
-                    text = " $label",
-                    color = contentColor,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun RouteToggleChip(
-    isOnline: Boolean,
-    onToggle: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val bg = if (isOnline) ClestraNeuSurface else ClestraBubbleSent
-    val fg = if (isOnline) ClestraOnline else ClestraCopperDark
-    val text = if (isOnline) "P2P Online" else "Relay Mode"
-
-    Box(
-        modifier = modifier
-            .neumorphicRaised(
-                cornerRadius = 14.dp,
-                elevation = 3.dp,
-                containerColor = bg,
-                accentBorderColor = if (isOnline) ClestraOnline.copy(alpha = 0.45f) else ClestraCopper.copy(alpha = 0.35f)
-            )
-            .clip(RoundedCornerShape(14.dp))
-            .clickable { onToggle() }
-            .padding(horizontal = 10.dp, vertical = 6.dp)
-            .testTag("route_toggle_chip")
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = text,
-                color = fg,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold
-            )
-        }
     }
 }
 

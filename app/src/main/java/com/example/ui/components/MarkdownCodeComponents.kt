@@ -1,5 +1,9 @@
 package com.example.ui.components
 
+import android.annotation.SuppressLint
+import android.webkit.WebChromeClient
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
@@ -38,11 +42,13 @@ import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.QuestionMark
 import androidx.compose.material.icons.filled.VideoFile
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -65,6 +71,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import com.example.data.model.MessageEntity
 import com.example.ui.theme.ClestraCharcoal
 import com.example.ui.theme.ClestraCopper
@@ -87,8 +94,18 @@ data class FullScreenDocumentData(
     val content: String,
     val sourceUri: String? = null,
     val fileName: String? = null,
-    val mimeType: String? = null
+    val mimeType: String? = null,
+    val initialPreviewMode: Boolean = false
 )
+
+fun isHtmlPreviewable(language: String, code: String): Boolean {
+    val lang = language.trim().lowercase()
+    if (lang == "html" || lang == "htm") return true
+    val trimmed = code.trimStart().lowercase()
+    return trimmed.startsWith("<!doctype html") ||
+        trimmed.startsWith("<html") ||
+        (trimmed.contains("<html") && trimmed.contains("</html>"))
+}
 
 object MarkdownParser {
     private val fenceRegex = Regex("```([A-Za-z0-9_+#.-]*)\\s*\\n([\\s\\S]*?)```")
@@ -317,7 +334,19 @@ fun MarkdownMessageContent(
                                     content = block.code
                                 )
                             )
-                        }
+                        },
+                        onOpenHtmlPreview = if (isHtmlPreviewable(block.language, block.code)) {
+                            {
+                                onOpenFullScreenCode(
+                                    FullScreenDocumentData(
+                                        title = "${block.language.uppercase()} Preview",
+                                        language = block.language,
+                                        content = block.code,
+                                        initialPreviewMode = true
+                                    )
+                                )
+                            }
+                        } else null
                     )
                 }
             }
@@ -331,6 +360,7 @@ fun CollapsedCodePreviewCard(
     fullCode: String,
     titleOverride: String? = null,
     onExpandFullScreen: () -> Unit,
+    onOpenHtmlPreview: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val clipboard = LocalClipboardManager.current
@@ -344,6 +374,7 @@ fun CollapsedCodePreviewCard(
         allLines.take(previewLimit).joinToString("\n")
     }
     val hasMoreLines = allLines.size > previewLimit
+    val canPreviewHtml = remember(language, fullCode) { isHtmlPreviewable(language, fullCode) }
     val highlighted = remember(previewText, language) {
         SyntaxHighlighter.highlight(previewText, language)
     }
@@ -354,7 +385,7 @@ fun CollapsedCodePreviewCard(
             .clip(RoundedCornerShape(14.dp))
             .background(Color(0xFF1F1B18))
     ) {
-        // Header bar with language badge + Copy + Full-screen buttons
+        // Compact header bar with language pill + icon-only Copy, Preview (HTML), and Fullscreen buttons
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -386,16 +417,38 @@ fun CollapsedCodePreviewCard(
                 if (hasMoreLines) {
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "${allLines.size} lines",
+                        text = "${allLines.size}L",
                         color = Color(0xFFB5A79C),
                         fontSize = 10.sp
                     )
                 }
             }
 
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                if (canPreviewHtml && onOpenHtmlPreview != null) {
+                    Box(
+                        modifier = Modifier
+                            .size(30.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color(0xFFC4763A))
+                            .clickable { onOpenHtmlPreview() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Visibility,
+                            contentDescription = "Preview HTML",
+                            tint = Color.White,
+                            modifier = Modifier.size(15.dp)
+                        )
+                    }
+                }
+
                 Box(
                     modifier = Modifier
+                        .size(30.dp)
                         .clip(RoundedCornerShape(8.dp))
                         .background(Color(0xFF3A322D))
                         .clickable {
@@ -406,48 +459,31 @@ fun CollapsedCodePreviewCard(
                                 delay(1500)
                                 copied = false
                             }
-                        }
-                        .padding(horizontal = 8.dp, vertical = 5.dp)
+                        },
+                    contentAlignment = Alignment.Center
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = if (copied) Icons.Default.Check else Icons.Default.ContentCopy,
-                            contentDescription = "Copy code",
-                            tint = if (copied) ClestraOnline else Color.White,
-                            modifier = Modifier.size(13.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = if (copied) "Copied" else "Copy",
-                            color = if (copied) ClestraOnline else Color.White,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
+                    Icon(
+                        imageVector = if (copied) Icons.Default.Check else Icons.Default.ContentCopy,
+                        contentDescription = if (copied) "Copied code" else "Copy code",
+                        tint = if (copied) ClestraOnline else Color.White,
+                        modifier = Modifier.size(14.dp)
+                    )
                 }
 
                 Box(
                     modifier = Modifier
+                        .size(30.dp)
                         .clip(RoundedCornerShape(8.dp))
                         .background(Color.White)
-                        .clickable { onExpandFullScreen() }
-                        .padding(horizontal = 8.dp, vertical = 5.dp)
+                        .clickable { onExpandFullScreen() },
+                    contentAlignment = Alignment.Center
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.OpenInFull,
-                            contentDescription = "Full screen code",
-                            tint = Color(0xFF14110F),
-                            modifier = Modifier.size(13.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "Full",
-                            color = Color(0xFF14110F),
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
+                    Icon(
+                        imageVector = Icons.Default.OpenInFull,
+                        contentDescription = "Full screen code",
+                        tint = Color(0xFF14110F),
+                        modifier = Modifier.size(14.dp)
+                    )
                 }
             }
         }
@@ -478,15 +514,15 @@ fun CollapsedCodePreviewCard(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = "Previewing ${previewLimit} of ${allLines.size} lines",
+                    text = "Previewing $previewLimit of ${allLines.size} lines",
                     color = Color(0xFFB5A79C),
                     fontSize = 10.sp
                 )
-                Text(
-                    text = "Open Full Screen →",
-                    color = Color(0xFFF4A261),
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.SemiBold
+                Icon(
+                    imageVector = Icons.Default.OpenInFull,
+                    contentDescription = "Expand code",
+                    tint = Color(0xFFF4A261),
+                    modifier = Modifier.size(13.dp)
                 )
             }
         }
@@ -617,7 +653,7 @@ fun FileAttachmentCard(
             }
         }
 
-        // For Text / Code files: collapsed preview box with Copy & Full-screen viewer!
+        // For Text / Code files: collapsed preview box with Copy, HTML Preview (if HTML), & Full-screen viewer
         val textPreview = loadedTextContent
         if (kind == ClestraFileKind.CODE_OR_TEXT && !textPreview.isNullOrBlank()) {
             val lang = remember(fileName) { FileAttachmentUtils.inferCodeLanguage(fileName) }
@@ -636,7 +672,22 @@ fun FileAttachmentCard(
                             mimeType = message.attachmentMimeType
                         )
                     )
-                }
+                },
+                onOpenHtmlPreview = if (isHtmlPreviewable(lang, textPreview)) {
+                    {
+                        onOpenFullScreenFile(
+                            FullScreenDocumentData(
+                                title = fileName,
+                                language = lang,
+                                content = textPreview,
+                                sourceUri = message.mediaUri,
+                                fileName = fileName,
+                                mimeType = message.attachmentMimeType,
+                                initialPreviewMode = true
+                            )
+                        )
+                    }
+                } else null
             )
         }
     }
@@ -653,6 +704,7 @@ private fun fileIconAndColor(kind: ClestraFileKind): Pair<ImageVector, Color> = 
     ClestraFileKind.UNKNOWN -> Icons.Default.QuestionMark to Color(0xFF5D534B)
 }
 
+@SuppressLint("SetJavaScriptEnabled")
 @Composable
 fun FullScreenCodeViewerModal(
     doc: FullScreenDocumentData,
@@ -663,6 +715,29 @@ fun FullScreenCodeViewerModal(
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
     var copied by remember { mutableStateOf(false) }
+    val canPreviewHtml = remember(doc.language, doc.content) {
+        isHtmlPreviewable(doc.language, doc.content)
+    }
+    var isPreviewMode by remember(doc) {
+        mutableStateOf(doc.initialPreviewMode && canPreviewHtml)
+    }
+    var activeWebView by remember { mutableStateOf<WebView?>(null) }
+
+    DisposableEffect(isPreviewMode) {
+        onDispose {
+            if (!isPreviewMode) {
+                activeWebView?.destroy()
+                activeWebView = null
+            }
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            activeWebView?.destroy()
+            activeWebView = null
+        }
+    }
 
     val lines = remember(doc.content) { doc.content.lines() }
     val highlighted = remember(doc.content, doc.language) {
@@ -710,10 +785,29 @@ fun FullScreenCodeViewerModal(
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = "${doc.language.uppercase()} • ${lines.size} lines",
+                    text = if (isPreviewMode) "Live HTML Preview" else "${doc.language.uppercase()} • ${lines.size} lines",
                     color = Color(0xFFB5A79C),
                     fontSize = 11.sp
                 )
+            }
+
+            if (canPreviewHtml) {
+                IconButton(
+                    onClick = { isPreviewMode = !isPreviewMode },
+                    modifier = Modifier
+                        .minimumInteractiveComponentSize()
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(if (isPreviewMode) Color(0xFFC4763A) else Color(0xFF332C28))
+                ) {
+                    Icon(
+                        imageVector = if (isPreviewMode) Icons.Default.Code else Icons.Default.Visibility,
+                        contentDescription = if (isPreviewMode) "Show HTML code" else "Preview HTML",
+                        tint = Color.White,
+                        modifier = Modifier.size(19.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(8.dp))
             }
 
             if (doc.sourceUri != null && doc.fileName != null && onDownloadFile != null) {
@@ -735,70 +829,88 @@ fun FullScreenCodeViewerModal(
                 Spacer(modifier = Modifier.width(8.dp))
             }
 
-            Box(
+            IconButton(
+                onClick = {
+                    clipboard.setText(AnnotatedString(doc.content))
+                    copied = true
+                    Toast.makeText(context, "Copied all", Toast.LENGTH_SHORT).show()
+                },
                 modifier = Modifier
+                    .minimumInteractiveComponentSize()
+                    .size(40.dp)
                     .clip(RoundedCornerShape(12.dp))
                     .background(Color.White)
-                    .clickable {
-                        clipboard.setText(AnnotatedString(doc.content))
-                        copied = true
-                        Toast.makeText(context, "Copied all", Toast.LENGTH_SHORT).show()
-                    }
-                    .padding(horizontal = 12.dp, vertical = 9.dp)
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = if (copied) Icons.Default.Check else Icons.Default.ContentCopy,
-                        contentDescription = "Copy all",
-                        tint = Color(0xFF14110F),
-                        modifier = Modifier.size(15.dp)
-                    )
-                    Spacer(modifier = Modifier.width(5.dp))
-                    Text(
-                        text = if (copied) "Copied" else "Copy",
-                        color = Color(0xFF14110F),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
+                Icon(
+                    imageVector = if (copied) Icons.Default.Check else Icons.Default.ContentCopy,
+                    contentDescription = if (copied) "Copied all" else "Copy all",
+                    tint = if (copied) ClestraOnline else Color(0xFF14110F),
+                    modifier = Modifier.size(18.dp)
+                )
             }
         }
 
-        Row(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(14.dp)
-        ) {
-            // Line numbers column
-            Column(
-                modifier = Modifier.padding(end = 12.dp),
-                horizontalAlignment = Alignment.End
-            ) {
-                lines.forEachIndexed { idx, _ ->
-                    Text(
-                        text = "${idx + 1}",
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 12.sp,
-                        lineHeight = 19.sp,
-                        color = Color(0xFF7D7066)
-                    )
-                }
-            }
-
-            // Full syntax-highlighted content
-            Box(
+        if (isPreviewMode && canPreviewHtml) {
+            AndroidView(
+                factory = { ctx ->
+                    WebView(ctx).apply {
+                        settings.javaScriptEnabled = true
+                        settings.domStorageEnabled = true
+                        settings.allowFileAccess = false
+                        settings.allowContentAccess = false
+                        settings.useWideViewPort = true
+                        settings.loadWithOverviewMode = true
+                        webViewClient = WebViewClient()
+                        webChromeClient = WebChromeClient()
+                        loadDataWithBaseURL(null, doc.content, "text/html", "UTF-8", null)
+                        activeWebView = this
+                    }
+                },
+                update = { webView ->
+                    activeWebView = webView
+                },
                 modifier = Modifier
                     .weight(1f)
-                    .horizontalScroll(rememberScrollState())
+                    .fillMaxWidth()
+                    .background(Color.White)
+            )
+        } else {
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(14.dp)
             ) {
-                Text(
-                    text = highlighted,
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 12.sp,
-                    lineHeight = 19.sp
-                )
+                // Line numbers column
+                Column(
+                    modifier = Modifier.padding(end = 12.dp),
+                    horizontalAlignment = Alignment.End
+                ) {
+                    lines.forEachIndexed { idx, _ ->
+                        Text(
+                            text = "${idx + 1}",
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 12.sp,
+                            lineHeight = 19.sp,
+                            color = Color(0xFF7D7066)
+                        )
+                    }
+                }
+
+                // Full syntax-highlighted content
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .horizontalScroll(rememberScrollState())
+                ) {
+                    Text(
+                        text = highlighted,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 12.sp,
+                        lineHeight = 19.sp
+                    )
+                }
             }
         }
     }

@@ -87,8 +87,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 convo.peerId.contains(query, ignoreCase = true)
 
             val matchesTab = when (tab) {
-                1 -> convo.isPeerOnline
-                2 -> !convo.isPeerOnline
+                1 -> convo.isPinned
+                2 -> convo.unreadCount > 0
                 else -> true
             }
             matchesQuery && matchesTab
@@ -223,6 +223,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         repository.setActiveConversationPeerId(peerId)
         viewModelScope.launch {
             repository.clearUnread(peerId)
+            repository.syncOfflineMessagesForUser()
         }
     }
 

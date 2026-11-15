@@ -2,19 +2,19 @@
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:top="2dp" android:left="2dp" android:right="0dp" android:bottom="0dp">
         <shape android:shape="rectangle">
-            <solid android:color="#1F000000" />
+            <solid android:color="#1F2C2018" />
             <corners android:radius="14dp" />
         </shape>
     </item>
     <item android:top="0dp" android:left="0dp" android:right="2dp" android:bottom="2dp">
         <shape android:shape="rectangle">
-            <solid android:color="#FFFFFFFF" />
+            <solid android:color="#CCFFFFFF" />
             <corners android:radius="14dp" />
         </shape>
     </item>
     <item android:top="1dp" android:left="1dp" android:right="1.5dp" android:bottom="1.5dp">
         <shape android:shape="rectangle">
-            <solid android:color="#ECF0F3" />
+            <solid android:color="#F5D5B8" />
             <corners android:radius="13dp" />
         </shape>
     </item>

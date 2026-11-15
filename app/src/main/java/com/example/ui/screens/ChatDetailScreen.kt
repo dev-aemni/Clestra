@@ -137,7 +137,6 @@ import com.example.ui.components.LocalClestraAudioController
 import com.example.ui.components.MarkdownMessageContent
 import com.example.ui.components.MuteDurationDialog
 import com.example.ui.components.NeumorphicButton
-import com.example.ui.components.RouteToggleChip
 import com.example.ui.components.StickerVisual
 import com.example.ui.components.formatMuteRemaining
 import com.example.ui.components.neumorphicBubble
@@ -341,7 +340,7 @@ fun ChatDetailScreen(
                     WindowInsets.ime.union(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom))
                 )
         ) {
-            // Exact CSS #ECF0F3 Soft UI Chat Header
+            // Warm Peach Soft UI Chat Header
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -467,8 +466,7 @@ fun ChatDetailScreen(
                                     when {
                                         isOfficial -> "Official Assistant"
                                         isBlocked -> "Blocked"
-                                        isPeerOnline -> "Online"
-                                        else -> "Offline"
+                                        else -> peerId
                                     }
                                 )
                                 if (muteLabel != null) {
@@ -480,7 +478,7 @@ fun ChatDetailScreen(
                                 text = statusLine,
                                 color = when {
                                     isBlocked -> ClestraError
-                                    isPeerOnline || isOfficial -> ClestraOnline
+                                    isOfficial -> ClestraOnline
                                     else -> ClestraTextSoft
                                 },
                                 fontSize = 11.sp,
@@ -488,14 +486,6 @@ fun ChatDetailScreen(
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
-                        }
-
-                        if (!isOfficial) {
-                            RouteToggleChip(
-                                isOnline = isPeerOnline,
-                                onToggle = { viewModel.togglePeerOnline(peerId) }
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
                         }
 
                         IconButton(
@@ -739,8 +729,8 @@ fun ChatDetailScreen(
                                     bottomStart = 18.dp,
                                     bottomEnd = 18.dp,
                                     elevation = 4.dp,
-                                    topColor = ClestraNeuSurface,
-                                    bottomColor = Color(0xFFE4EAEF)
+                                    topColor = Color(0xFFF8F3EC),
+                                    bottomColor = Color(0xFFF3E7DA)
                                 )
                             ) {
                                 Text(
@@ -1366,11 +1356,11 @@ fun MessageBubble(
         bottomEnd = 22.dp
     )
 
-    // Balanced #ECF0F3 / warm Soft UI tonal surfaces — no blown-out top white sheen
+    // Warm Peach & Cream Soft UI tonal bubble surfaces — no blown-out white top sheen
     val (topColor, bottomColor) = when {
-        isSent -> Color(0xFFF3E6D8) to Color(0xFFEBDBC9)
-        isBotIncoming -> ClestraNeuSurface to Color(0xFFE5EAEF)
-        else -> ClestraNeuSurface to Color(0xFFE6ECF1)
+        isSent -> Color(0xFFF5D5B8) to Color(0xFFEDD0B5)
+        isBotIncoming -> Color(0xFFF8F3EC) to Color(0xFFF3E7DA)
+        else -> Color(0xFFF8F3EC) to Color(0xFFF2EAE0)
     }
 
     Column(

@@ -22,7 +22,7 @@ data class ParsedBotResponse(
 /**
  * Parses LLM [[CLESTRA_ACTION:{...}]] directives as well as natural-language offline commands
  * so Clestra can send, read, write/edit, delete, clear, block/unblock, mute/unmute, pin,
- * add contacts, update profile/tags, and sync relay seamlessly.
+ * add contacts, update profile/tags, and sync messages seamlessly.
  */
 object ClestraBotActionEngine {
 
@@ -190,18 +190,7 @@ object ClestraBotActionEngine {
             )
         }
 
-        // 10. Toggle online/relay mode
-        Regex("""^(?:set|switch)\s+(.+?)\s+(online|offline|p2p|relay)$""", RegexOption.IGNORE_CASE)
-            .matchEntire(raw)?.let { m ->
-                val target = m.groupValues[1].trim()
-                val mode = m.groupValues[2].lowercase()
-                val isOnline = mode == "online" || mode == "p2p"
-                return "Updating route mode for **$target**." to listOf(
-                    BotActionDirective(action = "set_peer_online", peer = target, online = isOnline)
-                )
-            }
-
-        // 11. Update profile bio / name
+        // 10. Update profile bio / name
         Regex("""^(?:set|update|change)\s+(?:my\s+)?bio\s+(?:to\s+)?(.+)$""", RegexOption.IGNORE_CASE)
             .matchEntire(raw)?.let { m ->
                 val bio = m.groupValues[1].trim()
@@ -217,7 +206,7 @@ object ClestraBotActionEngine {
                 )
             }
 
-        // 12. Redeem or clear tag
+        // 11. Redeem or clear tag
         Regex("""^redeem\s+(?:tag\s+|code\s+)?(.+)$""", RegexOption.IGNORE_CASE)
             .matchEntire(raw)?.let { m ->
                 val code = m.groupValues[1].trim()
@@ -231,7 +220,7 @@ object ClestraBotActionEngine {
             )
         }
 
-        // 13. Read / list chats or contacts
+        // 12. Read / list chats or contacts
         Regex("""^(?:read|show|list|summarize)\s+(?:my\s+)?(?:chats|conversations|contacts|messages)(?:\s+(?:with|for|in)\s+(.+))?$""", RegexOption.IGNORE_CASE)
             .matchEntire(raw)?.let { m ->
                 val target = m.groupValues[1].trim().ifBlank { null }
@@ -240,9 +229,9 @@ object ClestraBotActionEngine {
                 )
             }
 
-        // 14. Sync relay
-        if (raw.equals("sync relay", ignoreCase = true) || raw.equals("sync", ignoreCase = true)) {
-            return "Syncing Serverless Relay now." to listOf(
+        // 13. Sync messages
+        if (raw.equals("sync messages", ignoreCase = true) || raw.equals("sync", ignoreCase = true)) {
+            return "Syncing messages now." to listOf(
                 BotActionDirective(action = "sync_relay")
             )
         }

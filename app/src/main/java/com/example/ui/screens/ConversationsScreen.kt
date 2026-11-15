@@ -282,7 +282,7 @@ fun ConversationsScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    listOf("All" to 0, "Online" to 1, "Relay" to 2).forEach { (label, tabIdx) ->
+                    listOf("All" to 0, "Pinned" to 1, "Unread" to 2).forEach { (label, tabIdx) ->
                         val isSelected = selectedFilterTab == tabIdx
                         Box(
                             modifier = Modifier
@@ -461,7 +461,7 @@ fun ConversationItem(
                 .neumorphicRaised(
                     cornerRadius = 24.dp,
                     elevation = 5.dp,
-                    containerColor = if (conversation.isOfficial) Color(0xFFE7EDF2) else ClestraNeuSurface,
+                    containerColor = if (conversation.isOfficial) ClestraWarmBeige else ClestraNeuSurface,
                     accentBorderColor = if (conversation.isOfficial) ClestraCopper.copy(alpha = 0.25f) else null
                 )
                 .clip(RoundedCornerShape(22.dp))
@@ -523,20 +523,16 @@ fun ConversationItem(
                         }
                     }
 
-                    Box(
-                        modifier = Modifier
-                            .size(13.dp)
-                            .align(Alignment.BottomEnd)
-                            .clip(CircleShape)
-                            .background(
-                                when {
-                                    conversation.isBlocked -> ClestraError
-                                    conversation.isPeerOnline || conversation.isOfficial -> ClestraOnline
-                                    else -> ClestraCopper
-                                }
-                            )
-                            .border(2.dp, ClestraNeuSurface, CircleShape)
-                    )
+                    if (conversation.isOfficial || conversation.isBlocked) {
+                        Box(
+                            modifier = Modifier
+                                .size(13.dp)
+                                .align(Alignment.BottomEnd)
+                                .clip(CircleShape)
+                                .background(if (conversation.isBlocked) ClestraError else ClestraOnline)
+                                .border(2.dp, ClestraNeuSurface, CircleShape)
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.width(14.dp))

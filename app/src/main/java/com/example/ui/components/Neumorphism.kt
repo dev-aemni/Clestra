@@ -41,7 +41,7 @@ import com.example.ui.theme.ClestraNeuLight
 import com.example.ui.theme.ClestraNeuSurface
 import com.example.ui.theme.ClestraNeuWell
 
-private val CssDropShadowColor = Color(0x29000000) // exact rgba(0, 0, 0, .16) from style.css
+private val CssDropShadowColor = Color(0x282C2018) // Warm soft umber ambient shadow (~16% opacity)
 
 /**
  * Exact CSS Soft UI raised/extruded shadow modifier matching style.css:
@@ -66,9 +66,9 @@ fun Modifier.neumorphicRaised(
     drawIntoCanvas { canvas ->
         val native = canvas.nativeCanvas
 
-        // Top-left CSS white highlight (-5px -5px 12px #ffffff)
+        // Top-left soft highlight (-5px -5px 12px) kept creamy so peach curves read smoothly
         val lightPaint = NativePaint(NativePaint.ANTI_ALIAS_FLAG).apply {
-            color = lightShadowColor.copy(alpha = 0.94f).toArgb()
+            color = lightShadowColor.copy(alpha = 0.78f).toArgb()
             maskFilter = BlurMaskFilter(blurPx, BlurMaskFilter.Blur.NORMAL)
         }
         native.drawRoundRect(
@@ -175,7 +175,7 @@ fun Modifier.neumorphicBubble(
         val native = canvas.nativeCanvas
 
         val lightPaint = NativePaint(NativePaint.ANTI_ALIAS_FLAG).apply {
-            color = lightShadowColor.copy(alpha = 0.90f).toArgb()
+            color = lightShadowColor.copy(alpha = 0.76f).toArgb()
             maskFilter = BlurMaskFilter(blurPx, BlurMaskFilter.Blur.NORMAL)
         }
         native.drawPath(buildBubblePath(-offsetPx, -offsetPx).asAndroidPath(), lightPaint)
@@ -261,8 +261,8 @@ fun Modifier.neumorphicPressed(
 
         // Top-left recessed dark shadow
         drawInsetRing(offsetPx, offsetPx, CssDropShadowColor.toArgb())
-        // Bottom-right recessed white glow
-        drawInsetRing(-offsetPx, -offsetPx, lightShadowColor.copy(alpha = 0.92f).toArgb())
+        // Bottom-right recessed soft glow
+        drawInsetRing(-offsetPx, -offsetPx, lightShadowColor.copy(alpha = 0.80f).toArgb())
 
         canvas.restore()
     }

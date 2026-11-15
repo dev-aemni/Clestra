@@ -1,18 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Clestra Soft UI Palette -->
-    <color name="cream">#ECF0F3</color>
-    <color name="warmBeige">#E3E9EE</color>
-    <color name="lightSkin">#F0E4D8</color>
-    <color name="sand">#D6DEE6</color>
+    <!-- Clestra Warm Peach & Cream Soft UI Palette -->
+    <color name="cream">#F3ECE3</color>
+    <color name="warmBeige">#EDE2D5</color>
+    <color name="lightSkin">#F0E0D0</color>
+    <color name="sand">#E5D1BA</color>
     <color name="copper">#C4763A</color>
     <color name="copperDark">#A05C28</color>
-    <color name="charcoal">#2D3136</color>
-    <color name="textSoft">#464646</color>
+    <color name="charcoal">#2C2018</color>
+    <color name="textSoft">#7A6555</color>
 
     <!-- Chat Bubbles -->
-    <color name="bubbleSent">#F2E3D5</color>
-    <color name="bubbleRecv">#ECF0F3</color>
+    <color name="bubbleSent">#F5D5B8</color>
+    <color name="bubbleRecv">#F8F3EC</color>
 
     <!-- Status -->
     <color name="online">#2EA96D</color>
